@@ -1,4 +1,4 @@
-## Solar Irradiance - IFT6759
+## Low Resource Machine Translation - IFT6759
 
 This project was created as part of the UdeM course IFT6759 (https://admission.umontreal.ca/cours-et-horaires/cours/IFT-6759/). The objective of this project is to predict French translations of English sentences using a small dataset. Refer to the report and presentation included in this reporistory for more details.
 
