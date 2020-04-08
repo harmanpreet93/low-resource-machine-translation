@@ -49,11 +49,8 @@ class CustomTokenizerTrainer():
             json.dump(config, fp)
 
 
-    def tokenize():
-        
-
-
 def main():
+    # how to train a tokenizer
     data_path = "../../../machine-translation/data"
     VOCAB_SIZE = 60000
     min_frequency = 2
@@ -78,6 +75,17 @@ def main():
     else:
         # train your Byte Pair Tokenizer on your own training files!
         tokenizerObj.train()
+
+    ##############################################################
+    # how to load the saved tokenizer
+    from transformers import AutoTokenizer
+
+    # make sure the path contains 3 files: config.json, merges.txt and vocab.json
+    tokenizer = AutoTokenizer.from_pretrained(pretrained_tokenizer_path, cache_dir=None)
+
+    # sample usage
+    text = "Montreal is a great city".strip().lowercase()
+    tokenizer.tokenize(text)
 
 
 if __name__ == "__main__":
