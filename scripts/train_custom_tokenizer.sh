@@ -17,5 +17,5 @@ python custom_tokenizer_trainer.py \
 	--vocab_size 60000 \
 	--lowercase True \
 	--min_frequency 2 \
-	--training_folder ./tokenizer_train_folder \
+	--training_folder ./tokenizer_train_folder_en \
 	--path_to_save_tokenizer ./tokenizer_data \
