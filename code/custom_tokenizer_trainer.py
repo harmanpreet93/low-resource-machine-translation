@@ -11,15 +11,13 @@ class CustomTokenizerTrainer():
                  special_tokens,
                  min_frequency: int,
                  lowercase: bool,
-                 VOCAB_SIZE: int,
-                 MAX_LENGTH: int):
+                 VOCAB_SIZE: int):
         super(CustomTokenizerTrainer, self).__init__()
         self.save_tokenizer_path = save_tokenizer_path
         self.training_files = training_files
         self.special_tokens = special_tokens
         self.min_frequency = min_frequency
         self.lowercase = lowercase
-        self.MAX_LENGTH = MAX_LENGTH
         self.VOCAB_SIZE = VOCAB_SIZE
         self.tokenizer = tokenizers.ByteLevelBPETokenizer(lowercase=self.lowercase)
 
