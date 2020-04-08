@@ -1,6 +1,6 @@
 import time
-import matplotlib.pyplot as plt
 from transformer import *
+from transformers import AutoTokenizer
 
 """
 ### Masking
@@ -111,7 +111,7 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
 """### Evaluate"""
 
 
-def evaluate(model, inp_sentence, MAX_LENGTH = 40):
+def evaluate(model, inp_sentence, MAX_LENGTH=40):
     start_token = [tokenizer_pt.vocab_size]
     end_token = [tokenizer_pt.vocab_size + 1]
 
@@ -130,11 +130,11 @@ def evaluate(model, inp_sentence, MAX_LENGTH = 40):
 
         # predictions.shape == (batch_size, seq_len, vocab_size)
         predictions, attention_weights = model(encoder_input,
-                                                     output,
-                                                     False,
-                                                     enc_padding_mask,
-                                                     combined_mask,
-                                                     dec_padding_mask)
+                                               output,
+                                               False,
+                                               enc_padding_mask,
+                                               combined_mask,
+                                               dec_padding_mask)
 
         # select the last word from the seq_len dimension
         predictions = predictions[:, -1:, :]  # (batch_size, 1, vocab_size)
@@ -157,17 +157,24 @@ def main():
     d_model = 128
     dff = 512
     num_heads = 8
-
-    input_vocab_size = tokenizer_pt.vocab_size + 2
-    target_vocab_size = tokenizer_en.vocab_size + 2
     dropout_rate = 0.1
-
     learning_rate = CustomSchedule(d_model)
+
+    # load pre-trained tokenizer
+    # make sure the path contains files:
+    # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
+    # code to train new tokenizer is in train_custom_tokenizer.py
+    pretrained_tokenizer_path_en = "./tokenizer_data_en"
+    tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
+
+    pretrained_tokenizer_path_fr = "./tokenizer_data_fr"
+    tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
+
+    input_vocab_size = tokenizer_en.vocab_size + 2
+    target_vocab_size = tokenizer_fr.vocab_size + 2
 
     optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
                                          epsilon=1e-9)
-
-    temp_learning_rate_schedule = CustomSchedule(d_model)
 
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
         from_logits=True, reduction='none')
@@ -207,7 +214,7 @@ def main():
             train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
 
             if batch % 50 == 0:
-                print('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                print('Epoch {} Batch {} Loss {:.`  4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
         if (epoch + 1) % 5 == 0:
