@@ -6,7 +6,10 @@ import sys
 
 
 class CustomTokenizerTrainer():
-    """CustomTokenizerTrainer based on ByteLevelBPETokenizer"""
+    """CustomTokenizerTrainer based on Byte-Level BPE Tokenizer
+
+    Byte-level BPE was introduced by OpenAI with their GPT-2 model
+    """
 
     def __init__(self, save_tokenizer_path: str,
                  training_files,
@@ -24,7 +27,6 @@ class CustomTokenizerTrainer():
         self.tokenizer = tokenizers.ByteLevelBPETokenizer(lowercase=self.lowercase)
 
     def train(self):
-
         self.tokenizer.train(
             files=self.training_files,
             vocab_size=self.VOCAB_SIZE,
@@ -78,12 +80,6 @@ class CustomTokenizerTrainer():
         with open(config_path, 'w') as fp:
             json.dump(special_tokens_map, fp)
 
-        # with open("data/merged_data.en", 'w', encoding="utf-8") as fout:
-        #     for file in self.training_files:
-        #         with open(file, 'r') as fin:
-        #             for line in fin.readlines():
-        #                 fout.write(line)
-
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -97,7 +93,7 @@ def str2bool(v):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--vocab_size", default=60000, help="Vocabulary Size", type=int)
+    parser.add_argument("--vocab_size", default=80000, help="Vocabulary Size", type=int)
     parser.add_argument("--lowercase", type=str2bool, default="False")
     parser.add_argument("--min_frequency", default=2, type=int,
                         help="Minimum frequency to consider while training tokenizer")
