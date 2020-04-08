@@ -108,20 +108,20 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
     train_accuracy(tar_real, predictions)
 
 
-"""### Evaluate"""
+"""Evaluate"""
 
 
-def evaluate(model, inp_sentence, MAX_LENGTH=40):
-    start_token = [tokenizer_pt.vocab_size]
-    end_token = [tokenizer_pt.vocab_size + 1]
+def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, MAX_LENGTH=40):
+    start_token = [tokenizer_en.vocab_size]
+    end_token = [tokenizer_en.vocab_size + 1]
 
-    # inp sentence is portuguese, hence adding the start and end token
-    inp_sentence = start_token + tokenizer_pt.encode(inp_sentence) + end_token
+    # inp sentence is english, hence adding the start and end token
+    inp_sentence = start_token + tokenizer_en.encode(inp_sentence) + end_token
     encoder_input = tf.expand_dims(inp_sentence, 0)
 
-    # as the target is english, the first word to the transformer should be the
-    # english start token.
-    decoder_input = [tokenizer_en.vocab_size]
+    # as the target is french, the first word to the transformer
+    # should be the french start token.
+    decoder_input = [tokenizer_fr.vocab_size]
     output = tf.expand_dims(decoder_input, 0)
 
     for i in range(MAX_LENGTH):
@@ -142,7 +142,7 @@ def evaluate(model, inp_sentence, MAX_LENGTH=40):
         predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
         # return the result if the predicted_id is equal to the end token
-        if predicted_id == tokenizer_en.vocab_size + 1:
+        if predicted_id == tokenizer_fr.vocab_size + 1:
             return tf.squeeze(output, axis=0), attention_weights
 
         # concatentate the predicted_id to the output which is given to the decoder
@@ -164,10 +164,10 @@ def main():
     # make sure the path contains files:
     # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
     # code to train new tokenizer is in train_custom_tokenizer.py
-    pretrained_tokenizer_path_en = "./tokenizer_data_en"
+    pretrained_tokenizer_path_en = "../tokenizer_data_en"
     tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
 
-    pretrained_tokenizer_path_fr = "./tokenizer_data_fr"
+    pretrained_tokenizer_path_fr = "../tokenizer_data_fr"
     tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
 
     input_vocab_size = tokenizer_en.vocab_size + 2
@@ -209,7 +209,7 @@ def main():
         train_loss.reset_states()
         train_accuracy.reset_states()
 
-        # inp -> portuguese, tar -> english
+        # inp -> english, tar -> french
         for (batch, (inp, tar)) in enumerate(train_dataset):
             train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
 

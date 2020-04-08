@@ -19,8 +19,8 @@ echo
 # Note: Keep lowercase=False for french
 
 python ../code/custom_tokenizer_trainer.py \
-            --vocab_size 60000 \
-            --lowercase False \
+            --vocab_size 40000 \
+            --lowercase True \
             --min_frequency 2 \
-            --training_folder ../../pretrain_language_model/tokenizer_train_folder_fr \
-            --path_to_save_tokenizer ../tokenizer_data_fr \
+            --training_folder ../../pretrain_language_model/tokenizer_train_folder_en \
+            --path_to_save_tokenizer ../tokenizer_data_en \
