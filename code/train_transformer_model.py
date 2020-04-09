@@ -117,12 +117,12 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
 
 def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, max_length=40):
     # inp sentence is english, hence adding the start and end token
-    inp_sentence = tokenizer_en.encode(inp_sentence)
+    # inp_sentence = tokenizer_en.encode(inp_sentence)
     encoder_input = tf.expand_dims(inp_sentence, 0)
 
     # as the target is french, the first word to the transformer
     # should be the french start token.
-    decoder_input = [tokenizer_fr.bos_token]
+    decoder_input = [tokenizer_fr.bos_token_id]
     output = tf.expand_dims(decoder_input, 0)
 
     for i in range(max_length):

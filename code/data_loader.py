@@ -18,14 +18,25 @@ class DataLoader():
         self.aligned_path_fr = aligned_path_fr
         self.tokenizer_en = tokenizer_en
         self.tokenizer_fr = tokenizer_fr
-        self.MAX_LENGTH = self.tokenizer_en.max_len  # 512
+        self.MAX_LENGTH =  self.tokenizer_en.max_len # 512
         self.initialize()
+
+    # def read_file(self, path):
+    #     lines = []
+    #     with open(path, 'r', encoding='utf-8') as fin:
+    #         for line in fin.readlines():
+    #             lines.append(line.strip())
+    #     return lines
 
     def initialize(self):
         # read files
         # TODO: check if encoding='UTF-8' argument should be passed or not
         aligned_sentences_en = io.open(self.aligned_path_en).read().strip().split('\n')
         aligned_sentences_fr = io.open(self.aligned_path_fr).read().strip().split('\n')
+        # aligned_sentences_en = self.read_file(self.aligned_path_en)
+        # aligned_sentences_fr = self.read_file(self.aligned_path_fr)
+
+        # TODO: Add pre-processing steps for English language: removing punctuation
 
         # tokenize and automatically add
         encoded_sequences_en = [self.tokenizer_en.encode(sentence.lower()) for sentence in aligned_sentences_en]
