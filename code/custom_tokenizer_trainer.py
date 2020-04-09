@@ -27,6 +27,7 @@ class CustomTokenizerTrainer():
         self.tokenizer = tokenizers.ByteLevelBPETokenizer(lowercase=self.lowercase)
 
     def train(self):
+        # train tokenizer
         self.tokenizer.train(
             files=self.training_files,
             vocab_size=self.VOCAB_SIZE,
@@ -104,7 +105,15 @@ def main():
 
     special_tokens = ["<pad>", "<s>", "</s>", "<unk>", "<mask>"]
 
-    training_files = [os.path.abspath(os.path.join(args.training_folder, x)) for x in os.listdir(args.training_folder)]
+    training_files = os.listdir(args.training_folder)
+
+    # remove OS specific files from the training_folder
+    try:
+        training_files.remove(".DS_Store")
+    except ValueError:
+        pass
+
+    training_files = [os.path.abspath(os.path.join(args.training_folder, x)) for x in training_files]
 
     # create custom tokenizer
     train_tokenizer_obj = CustomTokenizerTrainer(args.path_to_save_tokenizer,

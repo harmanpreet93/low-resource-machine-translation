@@ -112,6 +112,23 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
     train_accuracy(tar_real, predictions)
 
 
+def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
+    tar_inp = tar[:, :-1]
+    tar_real = tar[:, 1:]
+
+    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+
+    predictions, _ = model(inp, tar_inp,
+                           True,
+                           enc_padding_mask,
+                           combined_mask,
+                           dec_padding_mask)
+    loss = loss_function(tar_real, predictions)
+
+    val_loss(loss)
+    val_accuracy(tar_real, predictions)
+
+
 """Evaluate"""
 
 
@@ -179,14 +196,23 @@ def main():
     target_vocab_size = tokenizer_fr.vocab_size
 
     # data loader
-    aligned_path_en = user_config["aligned_english_data_path"]
-    aligned_path_fr = user_config["aligned_french_data_path"]
+    train_aligned_path_en = user_config["train_english_data_path"]
+    train_aligned_path_fr = user_config["train_french_data_path"]
     train_dataloader = DataLoader(user_config["transformer_batch_size"],
-                                  aligned_path_en,
-                                  aligned_path_fr,
+                                  train_aligned_path_en,
+                                  train_aligned_path_fr,
                                   tokenizer_en,
                                   tokenizer_fr)
     train_dataset = train_dataloader.get_data_loader()
+
+    val_aligned_path_en = user_config["train_english_data_path"]
+    val_aligned_path_fr = user_config["train_french_data_path"]
+    val_dataloader = DataLoader(user_config["transformer_batch_size"],
+                                val_aligned_path_en,
+                                val_aligned_path_fr,
+                                tokenizer_en,
+                                tokenizer_fr)
+    val_dataset = val_dataloader.get_data_loader()
 
     learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
@@ -194,12 +220,12 @@ def main():
                                          beta_2=0.98,
                                          epsilon=1e-9)
 
-    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True, reduction='none')
+    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
     train_loss = tf.keras.metrics.Mean(name='train_loss')
-    train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
-        name='train_accuracy')
+    train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
+    val_loss = tf.keras.metrics.Mean(name='val_loss')
+    val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
 
     transformer_model = Transformer(user_config["transformer_num_layers"],
                                     user_config["transformer_model_dimensions"],
@@ -215,39 +241,48 @@ def main():
                                optimizer=optimizer)
 
     checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=3)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)
         print('Latest checkpoint restored!!')
 
-    with tqdm.tqdm("training", total=user_config["transformer_epochs"]) as pbar:
-        for epoch in range(user_config["transformer_epochs"]):
-            start = time.time()
-            train_loss.reset_states()
-            train_accuracy.reset_states()
+    print("\nTraining model now...")
+    for epoch in range(user_config["transformer_epochs"]):
+        start = time.time()
+        train_loss.reset_states()
+        train_accuracy.reset_states()
 
+        # inp -> english, tar -> french
+        for (batch, (inp, tar, _)) in enumerate(train_dataset):
+            train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
+
+            if batch % 50 == 0:
+                print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                    epoch + 1, batch, train_loss.result(), train_accuracy.result()))
+
+        # evaluate model every y-epochs
+        if (epoch + 1) % 2 == 0:
+            print("\nRunning validation now...")
             # inp -> english, tar -> french
-            for (batch, (inp, tar, _)) in tqdm.tqdm(enumerate(train_dataset)):
-                train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
+            for (batch, (inp, tar, _)) in enumerate(val_dataset):
+                val_step(transformer_model, loss_object, inp, tar, val_loss, val_accuracy)
 
-                if batch % 50 == 0:
-                    print('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                        epoch + 1, batch, train_loss.result(), train_accuracy.result()))
+            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                epoch + 1, val_loss.result(), val_accuracy.result()))
 
-            if (epoch + 1) % 2 == 0:
-                ckpt_save_path = ckpt_manager.save()
-                print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-                                                                    ckpt_save_path))
+        # save model every x-epochs
+        if (epoch + 1) % 5 == 0:
+            ckpt_save_path = ckpt_manager.save()
+            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
+                                                                ckpt_save_path))
 
-            print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
-                                                                train_loss.result(),
-                                                                train_accuracy.result()))
+        print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
+                                                                   train_loss.result(),
+                                                                   train_accuracy.result()))
 
-            print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
-
-            pbar.update(1)
+        print('Time taken for {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
 
 
 if __name__ == "__main__":

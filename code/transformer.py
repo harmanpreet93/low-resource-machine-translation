@@ -40,7 +40,7 @@ def scaled_dot_product_attention(q, k, v, mask):
     q, k, v must have matching leading dimensions.
     k, v must have matching penultimate dimension, i.e.: seq_len_k = seq_len_v.
     The mask has different shapes depending on its type(padding or look ahead)
-    but it must be broadcastable for addition.
+    but it must be broadcast-able for addition.
 
     Args:
     q: query shape == (..., seq_len_q, depth)
