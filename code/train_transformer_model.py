@@ -241,7 +241,7 @@ def main():
                                optimizer=optimizer)
 
     checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=3)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
@@ -262,27 +262,35 @@ def main():
                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
+        print('Time taken for training {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
+
         # evaluate model every y-epochs
-        if (epoch + 1) % 2 == 0:
+        if epoch % 2 == 0:
+            start = time.time()
             print("\nRunning validation now...")
+            val_loss.reset_states()
+            val_accuracy.reset_states()
             # inp -> english, tar -> french
             for (batch, (inp, tar, _)) in enumerate(val_dataset):
                 val_step(transformer_model, loss_object, inp, tar, val_loss, val_accuracy)
 
-            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                epoch + 1, val_loss.result(), val_accuracy.result()))
+            print('Time taken for validation {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
 
-        # save model every x-epochs
-        if (epoch + 1) % 5 == 0:
+            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
+                                                                     val_loss.result(),
+                                                                     val_accuracy.result()))
+
+            # save model every y-epochs
             ckpt_save_path = ckpt_manager.save()
-            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-                                                                ckpt_save_path))
+            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                    train_loss.result(),
                                                                    train_accuracy.result()))
 
-        print('Time taken for {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
+    # save model after last epoch
+    ckpt_save_path = ckpt_manager.save()
+    print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
 
 if __name__ == "__main__":
