@@ -3,6 +3,9 @@ import tqdm
 from transformer import *
 from transformers import AutoTokenizer
 from data_loader import DataLoader
+import os
+import json
+import argparse
 
 """
 ### Masking
@@ -150,40 +153,42 @@ def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, max_length=40):
     return tf.squeeze(output, axis=0), attention_weights
 
 
-def main():
-    num_layers = 4
-    d_model = 128
-    dff = 512
-    num_heads = 8
-    dropout_rate = 0.1
-    batch_size = 16
-    EPOCHS = 5
-    learning_rate = CustomSchedule(d_model)
+def load_file(path):
+    assert os.path.isfile(path), f"invalid config file: {path}"
+    with open(path, "r") as fd:
+        return json.load(fd)
 
-    print("Loading tokenizers")
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
+    args = parser.parse_args()
+    user_config = load_file(args.config)
+
     # load pre-trained tokenizer
     # make sure the path contains files:
     # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
     # code to train new tokenizer is in train_custom_tokenizer.py
-    pretrained_tokenizer_path_en = "../tokenizer_data_en"
+    pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
     tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
 
-    pretrained_tokenizer_path_fr = "../tokenizer_data_fr"
+    pretrained_tokenizer_path_fr = user_config["tokenizer_path_en"]
     tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
 
     input_vocab_size = tokenizer_en.vocab_size
     target_vocab_size = tokenizer_fr.vocab_size
 
-    aligned_path_en = "../data/train.lang1"
-    aligned_path_fr = "../data/train.lang2"
-    train_dataloader = DataLoader(batch_size,
+    # data loader
+    aligned_path_en = user_config["aligned_english_data_path"]
+    aligned_path_fr = user_config["aligned_french_data_path"]
+    train_dataloader = DataLoader(user_config["transformer_batch_size"],
                                   aligned_path_en,
                                   aligned_path_fr,
                                   tokenizer_en,
                                   tokenizer_fr)
-
     train_dataset = train_dataloader.get_data_loader()
 
+    learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
                                          beta_2=0.98,
@@ -196,17 +201,20 @@ def main():
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='train_accuracy')
 
-    transformer_model = Transformer(num_layers, d_model, num_heads, dff,
-                                    input_vocab_size, target_vocab_size,
-                                    pe_input=input_vocab_size,
-                                    pe_target=target_vocab_size,
-                                    rate=dropout_rate)
-
-    checkpoint_path = "../log/checkpoints/train"
+    transformer_model = Transformer(user_config["transformer_num_layers"],
+                                    user_config["transformer_model_dimensions"],
+                                    user_config["transformer_num_heads"],
+                                    user_config["transformer_dff"],
+                                    input_vocab_size,
+                                    target_vocab_size,
+                                    en_input=input_vocab_size,
+                                    fr_target=target_vocab_size,
+                                    rate=user_config["transformer_dropout_rate"])
 
     ckpt = tf.train.Checkpoint(transformer=transformer_model,
                                optimizer=optimizer)
 
+    checkpoint_path = user_config["transformer_checkpoint_path"]
     ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
@@ -214,18 +222,17 @@ def main():
         ckpt.restore(ckpt_manager.latest_checkpoint)
         print('Latest checkpoint restored!!')
 
-    with tqdm.tqdm("training", total=EPOCHS) as pbar:
-        for epoch in range(EPOCHS):
+    with tqdm.tqdm("training", total=user_config["transformer_epochs"]) as pbar:
+        for epoch in range(user_config["transformer_epochs"]):
             start = time.time()
-
             train_loss.reset_states()
             train_accuracy.reset_states()
 
             # inp -> english, tar -> french
-            for (batch, (inp, tar)) in enumerate(train_dataset):
+            for (batch, (inp, tar, _)) in tqdm.tqdm(enumerate(train_dataset)):
                 train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
 
-                if batch % 10 == 0:
+                if batch % 50 == 0:
                     print('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                         epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
@@ -241,6 +248,7 @@ def main():
             print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
             pbar.update(1)
+
 
 if __name__ == "__main__":
     main()

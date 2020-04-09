@@ -1,0 +1,23 @@
+{
+  "random_seed": 42,
+  "model_file": "../model/my_model",
+  "target_model": "bert_model",
+  "nb_epoch": 10,
+  "code_profiling_enabled": false,
+  "ignore_checkpoints": true,
+  "model_info": "../model/training_info.npy",
+  "train_data_folder": "/project/cq-training-1/project2/teams/team08/data/",
+  "val_data_folder": "../data",
+  "transformer_num_layers": 4,
+  "transformer_model_dimensions": 128,
+  "transformer_dff": 512,
+  "transformer_num_heads": 8,
+  "transformer_dropout_rate": 0.1,
+  "transformer_batch_size": 8,
+  "transformer_epochs": 20,
+  "transformer_checkpoint_path": "../log/transformer_checkpoints/train",
+  "aligned_english_data_path": "../data/train.lang1",
+  "aligned_french_data_path": "../data/train.lang2",
+  "tokenizer_path_en": "../tokenizer_data_en",
+  "tokenizer_path_fr": "../tokenizer_data_fr"
+}
