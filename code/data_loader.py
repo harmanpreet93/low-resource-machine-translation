@@ -1,55 +1,54 @@
-import h5py
-import typing
-import datetime
-import numpy as np
 import tensorflow as tf
-from numpy.core._multiarray_umath import ndarray
 from model_logging import get_logger
-import glob
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 class DataLoader():
 
     def __init__(
             self,
-            dataframe: pd.DataFrame,
-            target_datetimes: typing.List[datetime.datetime],
-            stations: typing.Dict[typing.AnyStr, typing.Tuple[float, float, float]],
-            target_time_offsets: typing.List[datetime.timedelta],
-            config: typing.Dict[typing.AnyStr, typing.Any],
-            data_folder: typing.AnyStr
+            batch_size,
+            aligned_path_en,
+            aligned_path_fr,
+            tokenizer_en,
+            tokenizer_fr
     ):
-        """
-        Copy-paste from evaluator.py:
-        Args:
-            dataframe: a pandas dataframe that provides the netCDF file path (or HDF5 file path and offset) for all
-                relevant timestamp values over the test period.
-            target_datetimes: a list of timestamps that your data loader should use to provide imagery for your model.
-                The ordering of this list is important, as each element corresponds to a sequence of GHI values
-                to predict. By definition, the GHI values must be provided for the offsets given by
-                ``target_time_offsets`` which are added to each timestamp (T=0) in this datetimes list.
-            stations: a map of station names of interest paired with their coordinates (latitude, longitude, elevation)
-            target_time_offsets: the list of time-deltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
-            config: configuration dictionary holding extra parameters
-        """
-        self.config = config
-        self.data_folder = data_folder
+        self.BATCH_SIZE = batch_size
+        self.aligned_path_en = aligned_path_en
+        self.aligned_path_fr = aligned_path_fr
+        self.tokenizer_en = tokenizer_en
+        self.tokenizer_fr = tokenizer_fr
+        self.MAX_LENGTH = self.tokenizer_en.max_len # 512
         self.initialize()
 
     def initialize(self):
         self.logger = get_logger()
         self.logger.debug("Initialize start")
-        self.test_station = self.stations[0]
 
         self.data_loader = tf.data.Dataset.from_generator(
             self.data_generator_fn,
             output_types=(tf.int32, tf.int32)
-        ).prefetch(tf.data.experimental.AUTOTUNE)
+        ).batch(self.BATCH_SIZE).prefetch(tf.data.experimental.AUTOTUNE)
+
+    def encode_sentence(self, sentence, tokenizer, lowercase=True):
+        if lowercase:
+            encoded_sequence = tokenizer.encode(sentence.lower())
+        else:
+            encoded_sequence = tokenizer.encode(sentence) # for french
+
+        padded_seq = pad_sequences([encoded_sequence],
+                                   padding='post',
+                                   value=tokenizer.pad_token_id,
+                                   maxlen=self.MAX_LENGTH)
+
+        return padded_seq[0]
 
     def data_generator_fn(self):
-        for f_path in self.data_files_list:
-            with h5py.File(f_path, 'r') as h5_data:
-                yield "TODO"
+        with open(self.aligned_path_en, 'r') as f_en, open(self.aligned_path_fr, 'r') as f_fr:
+            for line_en, line_fr in zip(f_en, f_fr):
+                # return inp, out
+                yield self.encode_sentence(line_en, self.tokenizer_en, lowercase=True), \
+                      self.encode_sentence(line_fr, self.tokenizer_fr, lowercase=False)
 
     def get_data_loader(self):
         '''

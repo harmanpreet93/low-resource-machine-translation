@@ -1,6 +1,8 @@
 import time
+import tqdm
 from transformer import *
 from transformers import AutoTokenizer
+from data_loader import DataLoader
 
 """
 ### Masking
@@ -79,14 +81,13 @@ def create_masks(inp, tar):
 # tensors. To avoid re-tracing due to the variable sequence lengths or variable
 # batch sizes (the last batch is smaller), use input_signature to specify
 # more generic shapes.
+#
+# train_step_signature = [
+#     tf.TensorSpec(shape=(None, None), dtype=tf.int64),
+#     tf.TensorSpec(shape=(None, None), dtype=tf.int64),
+# ]
 
-train_step_signature = [
-    tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-    tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-]
 
-
-@tf.function(input_signature=train_step_signature)
 def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accuracy):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
@@ -111,20 +112,17 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
 """Evaluate"""
 
 
-def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, MAX_LENGTH=40):
-    start_token = [tokenizer_en.vocab_size]
-    end_token = [tokenizer_en.vocab_size + 1]
-
+def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, max_length=40):
     # inp sentence is english, hence adding the start and end token
-    inp_sentence = start_token + tokenizer_en.encode(inp_sentence) + end_token
+    inp_sentence = tokenizer_en.encode(inp_sentence)
     encoder_input = tf.expand_dims(inp_sentence, 0)
 
     # as the target is french, the first word to the transformer
     # should be the french start token.
-    decoder_input = [tokenizer_fr.vocab_size]
+    decoder_input = [tokenizer_fr.bos_token]
     output = tf.expand_dims(decoder_input, 0)
 
-    for i in range(MAX_LENGTH):
+    for i in range(max_length):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, output)
 
@@ -142,7 +140,7 @@ def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, MAX_LENGTH=40):
         predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
         # return the result if the predicted_id is equal to the end token
-        if predicted_id == tokenizer_fr.vocab_size + 1:
+        if predicted_id == tokenizer_fr.eos_token_id:
             return tf.squeeze(output, axis=0), attention_weights
 
         # concatentate the predicted_id to the output which is given to the decoder
@@ -158,8 +156,11 @@ def main():
     dff = 512
     num_heads = 8
     dropout_rate = 0.1
+    batch_size = 16
+    EPOCHS = 5
     learning_rate = CustomSchedule(d_model)
 
+    print("Loading tokenizers")
     # load pre-trained tokenizer
     # make sure the path contains files:
     # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
@@ -170,10 +171,22 @@ def main():
     pretrained_tokenizer_path_fr = "../tokenizer_data_fr"
     tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
 
-    input_vocab_size = tokenizer_en.vocab_size + 2
-    target_vocab_size = tokenizer_fr.vocab_size + 2
+    input_vocab_size = tokenizer_en.vocab_size
+    target_vocab_size = tokenizer_fr.vocab_size
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
+    aligned_path_en = "../data/train.lang1"
+    aligned_path_fr = "../data/train.lang2"
+    train_dataloader = DataLoader(batch_size,
+                                  aligned_path_en,
+                                  aligned_path_fr,
+                                  tokenizer_en,
+                                  tokenizer_fr)
+
+    train_dataset = train_dataloader.get_data_loader()
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate,
+                                         beta_1=0.9,
+                                         beta_2=0.98,
                                          epsilon=1e-9)
 
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
@@ -189,7 +202,7 @@ def main():
                                     pe_target=target_vocab_size,
                                     rate=dropout_rate)
 
-    checkpoint_path = "./checkpoints/train"
+    checkpoint_path = "../log/checkpoints/train"
 
     ckpt = tf.train.Checkpoint(transformer=transformer_model,
                                optimizer=optimizer)
@@ -201,33 +214,33 @@ def main():
         ckpt.restore(ckpt_manager.latest_checkpoint)
         print('Latest checkpoint restored!!')
 
-    EPOCHS = 5
+    with tqdm.tqdm("training", total=EPOCHS) as pbar:
+        for epoch in range(EPOCHS):
+            start = time.time()
 
-    for epoch in range(EPOCHS):
-        start = time.time()
+            train_loss.reset_states()
+            train_accuracy.reset_states()
 
-        train_loss.reset_states()
-        train_accuracy.reset_states()
+            # inp -> english, tar -> french
+            for (batch, (inp, tar)) in enumerate(train_dataset):
+                train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
 
-        # inp -> english, tar -> french
-        for (batch, (inp, tar)) in enumerate(train_dataset):
-            train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
+                if batch % 10 == 0:
+                    print('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                        epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
-            if batch % 50 == 0:
-                print('Epoch {} Batch {} Loss {:.`  4f} Accuracy {:.4f}'.format(
-                    epoch + 1, batch, train_loss.result(), train_accuracy.result()))
+            if (epoch + 1) % 2 == 0:
+                ckpt_save_path = ckpt_manager.save()
+                print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
+                                                                    ckpt_save_path))
 
-        if (epoch + 1) % 5 == 0:
-            ckpt_save_path = ckpt_manager.save()
-            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-                                                                ckpt_save_path))
+            print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
+                                                                train_loss.result(),
+                                                                train_accuracy.result()))
 
-        print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
-                                                            train_loss.result(),
-                                                            train_accuracy.result()))
+            print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
-        print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
-
+            pbar.update(1)
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,4 @@
 sacrebleu==1.4.3
 spacy
 tqdm
+transformers==2.7
