@@ -149,11 +149,11 @@ def do_training(user_config):
             for (batch, (inp, tar, _)) in enumerate(val_dataset):
                 val_step(transformer_model, loss_object, inp, tar, val_loss, val_accuracy)
 
-            print('Time taken for validation {} epoch: {} secs'.format(epoch + 1, time.time() - start))
-
             print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                      val_loss.result(),
                                                                      val_accuracy.result()))
+
+            print('Time taken for validation {} epoch: {} secs'.format(epoch + 1, time.time() - start))
 
             # save model every y-epochs
             ckpt_save_path = ckpt_manager.save()
@@ -161,7 +161,7 @@ def do_training(user_config):
 
         if user_config["compute_bleu"]:
             # TODO: change manual paths
-            if epoch % 20 == 0:
+            if epoch % 200 == 0:
                 print("\nComputing BLEU while training: ")
                 input_file_path = "../log/predicted_fr_1.txt"
                 target_file_path = "../log/true_fr_1.txt"
