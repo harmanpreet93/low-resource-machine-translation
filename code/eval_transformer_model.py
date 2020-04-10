@@ -31,7 +31,7 @@ def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tok
                     output_fr = fr[i]
                     # for input_en, output_fr in zip(en_, fr):
                     translated_text = translate(model, input_en, tokenizer_en, tokenizer_fr, max_length=300)
-                    f_pred.write(tf.compat.as_str_any(output_fr).strip() + "\n")
+                    f_pred.write(tf.compat.as_str_any(output_fr.numpy()).strip() + "\n")
                     f_true.write(translated_text.strip() + "\n")
 
     # compute bleu score
