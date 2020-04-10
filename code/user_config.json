@@ -10,8 +10,8 @@
   "val_data_folder": "../data",
   "transformer_dff": 1024,
   "transformer_dropout_rate": 0.1,
-  "transformer_batch_size": 24,
-  "transformer_epochs": 24,
+  "transformer_batch_size": 32,
+  "transformer_epochs": 25,
   "transformer_num_layers": 4,
   "transformer_model_dimensions": 256,
   "transformer_num_heads": 8,
@@ -24,5 +24,5 @@
   "test_data_path_fr": "../log/test_fr_bleu.txt",
   "tokenizer_path_en": "../tokenizer_data_en",
   "tokenizer_path_fr": "../tokenizer_data_fr",
-  "compute_bleu": true
+  "compute_bleu": false
 }

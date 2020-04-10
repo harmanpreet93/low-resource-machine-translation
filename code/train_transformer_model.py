@@ -129,21 +129,6 @@ def do_training(user_config):
         train_loss.reset_states()
         train_accuracy.reset_states()
 
-        if epoch % 20 == 0:
-            print("\nComputing BLEU: ")
-            input_file_path = "../log/predicted_fr_1.txt"
-            target_file_path = "../log/true_fr_1.txt"
-            sacrebelu_metric(transformer_model,
-                             input_file_path,
-                             target_file_path,
-                             tokenizer_en,
-                             tokenizer_fr,
-                             test_dataset,
-                             user_config["compute_bleu"],
-                             process_batches=False
-                             )
-            print()
-
         # inp -> english, tar -> french
         for (batch, (inp, tar, _)) in enumerate(train_dataset):
             train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
@@ -155,7 +140,7 @@ def do_training(user_config):
         print('Time taken for training {} epoch: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every y-epochs
-        if epoch % 5 == 0:
+        if epoch % 2 == 0:
             start = time.time()
             print("\nRunning validation now...")
             val_loss.reset_states()
@@ -174,13 +159,28 @@ def do_training(user_config):
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
+        if user_config["compute_bleu"]:
+            # TODO: change manual paths
+            if epoch % 20 == 0:
+                print("\nComputing BLEU while training: ")
+                input_file_path = "../log/predicted_fr_1.txt"
+                target_file_path = "../log/true_fr_1.txt"
+                sacrebelu_metric(transformer_model,
+                                 input_file_path,
+                                 target_file_path,
+                                 tokenizer_en,
+                                 tokenizer_fr,
+                                 test_dataset,
+                                 process_batches=False
+                                 )
+
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}\n'.format(epoch + 1,
                                                                    train_loss.result(),
                                                                    train_accuracy.result()))
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
-    print('Saving checkpoint for epoch {} at {}'.format(epochs, ckpt_save_path))
+    print('Training finished. Saving checkpoint for {} epoch at {}'.format(epochs, ckpt_save_path))
 
 
 def main():

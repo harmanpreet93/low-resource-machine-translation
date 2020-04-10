@@ -8,16 +8,18 @@ from evaluator import compute_bleu
 
 """Evaluate"""
 
+
 def load_file(path):
     assert os.path.isfile(path), f"invalid config file: {path}"
     with open(path, "r") as fd:
         return json.load(fd)
 
+
 def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
-                     compute_bleu_bool, process_batches=False):
+                     process_batches=False):
     with open(input_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
         for batch, (en_, fr_, fr) in enumerate(test_dataset):
-            # evaluations possibly faster in batches (??)
+            # evaluations possibly faster in batches (??) - TODO: verify
             if process_batches:
                 translated_batch = translate_batch(model, en_, tokenizer_en, tokenizer_fr, max_length=300)
                 for true, pred in zip(fr, translated_batch):
@@ -27,14 +29,14 @@ def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tok
                 for i in range(len(en_)):
                     input_en = en_[i]
                     output_fr = fr[i]
-                # for input_en, output_fr in zip(en_, fr):
+                    # for input_en, output_fr in zip(en_, fr):
                     translated_text = translate(model, input_en, tokenizer_en, tokenizer_fr, max_length=300)
                     f_pred.write(tf.compat.as_str_any(output_fr).strip() + "\n")
                     f_true.write(translated_text.strip() + "\n")
 
     # compute bleu score
-    if compute_bleu_bool:
-        compute_bleu(input_file_path, target_file_path, print_all_scores=False)
+    compute_bleu(input_file_path, target_file_path, print_all_scores=False)
+
 
 def evaluate(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
     # print("harman: ",inputs)
@@ -103,7 +105,7 @@ def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
         if (predicted_id == tokenizer_fr.eos_token_id).numpy().all():
             return tf.squeeze(output, axis=0), attention_weights
 
-        # concatentate the predicted_id to the output which is given to the decoder
+        # concatenate the predicted_id to the output which is given to the decoder
         # as its input.
         output = tf.concat([output, predicted_id], axis=-1)
 
@@ -111,8 +113,10 @@ def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
 
 
 def sequences_to_texts(tokenizer, pred):
-    decoded_text = tokenizer.decode(pred).split(tokenizer.eos_token)[0]
-    decoded_text_ = tokenizer.decode(tokenizer.encode(decoded_text), skip_special_tokens=True)
+    # 2 pass decoder: for batch evaluation (hack!)
+    decoded_text = tokenizer.decode(pred, clean_up_tokenization_spaces=False).split(tokenizer.eos_token)[0]
+    decoded_text_ = tokenizer.decode(tokenizer.encode(decoded_text, clean_up_tokenization_spaces=False),
+                                     skip_special_tokens=True)
     return decoded_text_
 
 
@@ -186,10 +190,8 @@ def do_evaluation(user_config, process_batches=False):
                      tokenizer_en,
                      tokenizer_fr,
                      test_dataset,
-                     user_config["compute_bleu"],
-                     process_batches=False
+                     process_batches=process_batches
                      )
-
 
 
 def main():
