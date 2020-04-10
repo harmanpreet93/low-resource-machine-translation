@@ -15,7 +15,7 @@ class Tokenizer:
         super().__init__()
         
         # Maximum number of tokens per line
-        self.MAX_LENGTH = 32
+        self.MAX_LENGTH = 64
         
         if language == 'en':
             self.pretrained_tokenizer_path = "tokenizer_data_en/"
@@ -75,8 +75,14 @@ class Tokenizer:
         return output
 
 # Sample usage
-t = Tokenizer(language='fr')
-tokens = t.encode("Bonjour , terre !")
+t_fr = Tokenizer(language='fr')
+tokens = t_fr.encode("Bonjour , terre !")
 print(tokens)
-text = t.decode(tokens['input_ids'])
+text = t_fr.decode(tokens['input_ids'])
+print(text)
+
+t_en = Tokenizer(language='en')
+tokens = t_en.encode("hello world")
+print(tokens)
+text = t_en.decode(tokens['input_ids'])
 print(text)
