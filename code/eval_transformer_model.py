@@ -16,12 +16,12 @@ def load_file(path):
 
 
 def sacrebleu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
-                     process_batches=False):
+                     process_batches=True):
     with open(input_file_path, "w", buffering=1, encoding='latin1') as f_pred, open(target_file_path, "w",
                                                                                     buffering=1,
                                                                                     encoding='latin1') as f_true:
         for batch, (en_, fr_, fr) in enumerate(test_dataset):
-            # evaluations possibly faster in batches (??) - TODO: verify
+            # evaluations possibly faster in batches (??), implemented both - TODO: verify
             if process_batches:
                 translated_batch = translate_batch(model, en_, tokenizer_en, tokenizer_fr, max_length=300)
                 for true, pred in zip(fr, translated_batch):
@@ -201,7 +201,7 @@ def main():
     parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
     args = parser.parse_args()
     user_config = load_file(args.config)
-    do_evaluation(user_config, process_batches=False)
+    do_evaluation(user_config, process_batches=True)
 
 
 if __name__ == "__main__":

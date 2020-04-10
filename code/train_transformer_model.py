@@ -171,7 +171,7 @@ def do_training(user_config):
                                  tokenizer_en,
                                  tokenizer_fr,
                                  test_dataset,
-                                 process_batches=False
+                                 process_batches=True
                                  )
 
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}\n'.format(epoch + 1,

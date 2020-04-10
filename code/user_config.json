@@ -11,7 +11,7 @@
   "transformer_dff": 2048,
   "transformer_dropout_rate": 0.1,
   "transformer_batch_size": 16,
-  "transformer_epochs": 15,
+  "transformer_epochs": 10,
   "transformer_num_layers": 6,
   "transformer_model_dimensions": 512,
   "transformer_num_heads": 8,
