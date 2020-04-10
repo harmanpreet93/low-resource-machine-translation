@@ -11,7 +11,7 @@
   "transformer_dff": 1024,
   "transformer_dropout_rate": 0.1,
   "transformer_batch_size": 24,
-  "transformer_epochs": 15,
+  "transformer_epochs": 10,
   "transformer_num_layers": 4,
   "transformer_model_dimensions": 256,
   "transformer_num_heads": 8,
@@ -19,7 +19,10 @@
   "train_english_data_path": "../data/train_en.txt",
   "train_french_data_path": "../data/train_fr.txt",
   "val_english_data_path": "../data/test_en.txt",
-  "val_val_data_path": "../data/targets.txt",
+  "val_french_data_path": "../data/targets.txt",
+  "test_english_data_path": "../log/test_en_bleu.txt",
+  "test_french_data_path": "../log/test_fr_bleu.txt",
   "tokenizer_path_en": "../tokenizer_data_en",
-  "tokenizer_path_fr": "../tokenizer_data_fr"
+  "tokenizer_path_fr": "../tokenizer_data_fr",
+  "compute_bleu": true
 }

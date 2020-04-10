@@ -1,5 +1,4 @@
 import time
-import tqdm
 from transformer import *
 from transformers import AutoTokenizer
 from data_loader import DataLoader
@@ -129,47 +128,6 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
     val_accuracy(tar_real, predictions)
 
 
-"""Evaluate"""
-
-
-def evaluate(model, inp_sentence, tokenizer_en, tokenizer_fr, max_length=40):
-    # inp sentence is english, hence adding the start and end token
-    # inp_sentence = tokenizer_en.encode(inp_sentence)
-    encoder_input = tf.expand_dims(inp_sentence, 0)
-
-    # as the target is french, the first word to the transformer
-    # should be the french start token.
-    decoder_input = [tokenizer_fr.bos_token_id]
-    output = tf.expand_dims(decoder_input, 0)
-
-    for i in range(max_length):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
-            encoder_input, output)
-
-        # predictions.shape == (batch_size, seq_len, vocab_size)
-        predictions, attention_weights = model(encoder_input,
-                                               output,
-                                               False,
-                                               enc_padding_mask,
-                                               combined_mask,
-                                               dec_padding_mask)
-
-        # select the last word from the seq_len dimension
-        predictions = predictions[:, -1:, :]  # (batch_size, 1, vocab_size)
-
-        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-
-        # return the result if the predicted_id is equal to the end token
-        if predicted_id == tokenizer_fr.eos_token_id:
-            return tf.squeeze(output, axis=0), attention_weights
-
-        # concatentate the predicted_id to the output which is given to the decoder
-        # as its input.
-        output = tf.concat([output, predicted_id], axis=-1)
-
-    return tf.squeeze(output, axis=0), attention_weights
-
-
 def load_file(path):
     assert os.path.isfile(path), f"invalid config file: {path}"
     with open(path, "r") as fd:
@@ -205,9 +163,9 @@ def main():
                                   tokenizer_fr)
     train_dataset = train_dataloader.get_data_loader()
 
-    val_aligned_path_en = user_config["train_english_data_path"]
-    val_aligned_path_fr = user_config["train_french_data_path"]
-    val_dataloader = DataLoader(user_config["transformer_batch_size"],
+    val_aligned_path_en = user_config["val_english_data_path"]
+    val_aligned_path_fr = user_config["val_french_data_path"]
+    val_dataloader = DataLoader(user_config["transformer_batch_size"] * 2, # for fast validation
                                 val_aligned_path_en,
                                 val_aligned_path_fr,
                                 tokenizer_en,
@@ -241,7 +199,7 @@ def main():
                                optimizer=optimizer)
 
     checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=3)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
@@ -262,27 +220,35 @@ def main():
                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
+        print('Time taken for training {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
+
         # evaluate model every y-epochs
-        if (epoch + 1) % 2 == 0:
+        if epoch % 2 == 0:
+            start = time.time()
             print("\nRunning validation now...")
+            val_loss.reset_states()
+            val_accuracy.reset_states()
             # inp -> english, tar -> french
             for (batch, (inp, tar, _)) in enumerate(val_dataset):
                 val_step(transformer_model, loss_object, inp, tar, val_loss, val_accuracy)
 
-            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                epoch + 1, val_loss.result(), val_accuracy.result()))
+            print('Time taken for validation {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
 
-        # save model every x-epochs
-        if (epoch + 1) % 5 == 0:
+            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
+                                                                     val_loss.result(),
+                                                                     val_accuracy.result()))
+
+            # save model every y-epochs
             ckpt_save_path = ckpt_manager.save()
-            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-                                                                ckpt_save_path))
+            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                    train_loss.result(),
                                                                    train_accuracy.result()))
 
-        print('Time taken for {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
+    # save model after last epoch
+    ckpt_save_path = ckpt_manager.save()
+    print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
 
 if __name__ == "__main__":

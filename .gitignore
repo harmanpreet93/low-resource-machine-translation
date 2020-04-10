@@ -141,3 +141,4 @@ scripts/rsync_from_server.sh
 scripts/rsync_to_server.sh
 # scripts/slurm-*
 log/
+model/
