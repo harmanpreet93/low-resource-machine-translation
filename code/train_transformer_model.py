@@ -5,89 +5,8 @@ from data_loader import DataLoader
 import os
 import json
 import argparse
-
-"""
-### Masking
-
-Mask all the pad tokens in the batch of sequence. 
-It ensures that the model does not treat padding as the input. 
-The mask indicates where pad value 0 is present: it outputs a 1 at those locations, and a 0 otherwise.
-"""
-
-
-def create_padding_mask(seq):
-    seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
-
-    # add extra dimensions to add the padding
-    # to the attention logits.
-    return seq[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
-
-
-"""
-The look-ahead mask is used to mask the future tokens in a sequence. 
-In other words,  the mask indicates which entries should not be used. 
-"""
-
-
-def create_look_ahead_mask(size):
-    mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
-    return mask  # (seq_len, seq_len)
-
-
-class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
-    def __init__(self, d_model, warmup_steps=4000):
-        super(CustomSchedule, self).__init__()
-
-        self.d_model = d_model
-        self.d_model = tf.cast(self.d_model, tf.float32)
-
-        self.warmup_steps = warmup_steps
-
-    def __call__(self, step):
-        arg1 = tf.math.rsqrt(step)
-        arg2 = step * (self.warmup_steps ** -1.5)
-
-        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
-
-
-def loss_function(loss_object, real, pred):
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
-    loss_ = loss_object(real, pred)
-
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
-
-    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
-
-
-def create_masks(inp, tar):
-    # Encoder padding mask
-    enc_padding_mask = create_padding_mask(inp)
-
-    # Used in the 2nd attention block in the decoder.
-    # This padding mask is used to mask the encoder outputs.
-    dec_padding_mask = create_padding_mask(inp)
-
-    # Used in the 1st attention block in the decoder.
-    # It is used to pad and mask future tokens in the input received by
-    # the decoder.
-    look_ahead_mask = create_look_ahead_mask(tf.shape(tar)[1])
-    dec_target_padding_mask = create_padding_mask(tar)
-    combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
-
-    return enc_padding_mask, combined_mask, dec_padding_mask
-
-
-# The @tf.function trace-compiles train_step into a TF graph for faster
-# execution. The function specializes to the precise shape of the argument
-# tensors. To avoid re-tracing due to the variable sequence lengths or variable
-# batch sizes (the last batch is smaller), use input_signature to specify
-# more generic shapes.
-#
-# train_step_signature = [
-#     tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-#     tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-# ]
+from eval_transformer_model import translate_batch
+from evaluator import compute_bleu
 
 
 def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accuracy):
@@ -118,7 +37,7 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
     enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
 
     predictions, _ = model(inp, tar_inp,
-                           True,
+                           False,
                            enc_padding_mask,
                            combined_mask,
                            dec_padding_mask)
@@ -128,18 +47,21 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
     val_accuracy(tar_real, predictions)
 
 
-def load_file(path):
-    assert os.path.isfile(path), f"invalid config file: {path}"
-    with open(path, "r") as fd:
-        return json.load(fd)
+def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
+                     compute_bleu_bool=True):
+    with open(input_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
+        for batch, (en_, fr_, fr) in enumerate(test_dataset):
+            translated_batch = translate_batch(model, en_, tokenizer_en, tokenizer_fr, max_length=300)
+            for true, pred in zip(fr, translated_batch):
+                f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
+                f_pred.write(pred.strip() + "\n")
+
+    # compute bleu score
+    if compute_bleu_bool:
+        compute_bleu(input_file_path, target_file_path, print_all_scores=False)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
-    args = parser.parse_args()
-    user_config = load_file(args.config)
-
+def do_training(user_config, compute_bleu_bool=False):
     # load pre-trained tokenizer
     # make sure the path contains files:
     # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
@@ -165,12 +87,22 @@ def main():
 
     val_aligned_path_en = user_config["val_english_data_path"]
     val_aligned_path_fr = user_config["val_french_data_path"]
-    val_dataloader = DataLoader(user_config["transformer_batch_size"] * 2, # for fast validation
+    val_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,  # for fast validation
                                 val_aligned_path_en,
                                 val_aligned_path_fr,
                                 tokenizer_en,
                                 tokenizer_fr)
     val_dataset = val_dataloader.get_data_loader()
+
+    test_aligned_path_en = user_config["test_english_data_path"]
+    test_aligned_path_fr = user_config["test_french_data_path"]
+    test_dataloader = DataLoader(user_config["transformer_batch_size"] ,
+                                 test_aligned_path_en,
+                                 test_aligned_path_fr,
+                                 tokenizer_en,
+                                 tokenizer_fr,
+                                 shuffle=False)
+    test_dataset = test_dataloader.get_data_loader()
 
     learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
@@ -222,8 +154,8 @@ def main():
 
         print('Time taken for training {} epoch: {} secs\n'.format(epoch + 1, time.time() - start))
 
-        # evaluate model every y-epochs
-        if epoch % 2 == 0:
+        # evaluate and save model every y-epochs
+        if epoch % 5 == 0:
             start = time.time()
             print("\nRunning validation now...")
             val_loss.reset_states()
@@ -242,6 +174,18 @@ def main():
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
+        if epoch % 10 == 0:
+            input_file_path = "../log/predicted_fr_1.txt"
+            target_file_path = "../log/true_fr_1.txt"
+            sacrebelu_metric(transformer_model,
+                             input_file_path,
+                             target_file_path,
+                             tokenizer_en,
+                             tokenizer_fr,
+                             test_dataset,
+                             compute_bleu_bool
+                             )
+
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                    train_loss.result(),
                                                                    train_accuracy.result()))
@@ -249,6 +193,22 @@ def main():
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
     print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
+
+
+def load_file(path):
+    assert os.path.isfile(path), f"invalid config file: {path}"
+    with open(path, "r") as fd:
+        return json.load(fd)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
+    args = parser.parse_args()
+    user_config = load_file(args.config)
+
+    compute_bleu_bool = True
+    do_training(user_config, compute_bleu_bool)
 
 
 if __name__ == "__main__":
