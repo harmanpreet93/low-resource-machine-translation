@@ -3,7 +3,7 @@ from transformer import *
 from transformers import AutoTokenizer
 from data_loader import DataLoader
 import argparse
-from eval_transformer_model import load_file, sacrebelu_metric
+from eval_transformer_model import load_file, sacrebleu_metric
 
 
 def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accuracy):
@@ -165,7 +165,7 @@ def do_training(user_config):
                 print("\nComputing BLEU while training: ")
                 input_file_path = "../log/predicted_fr_1.txt"
                 target_file_path = "../log/true_fr_1.txt"
-                sacrebelu_metric(transformer_model,
+                sacrebleu_metric(transformer_model,
                                  input_file_path,
                                  target_file_path,
                                  tokenizer_en,

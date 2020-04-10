@@ -15,7 +15,7 @@ def load_file(path):
         return json.load(fd)
 
 
-def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
+def sacrebleu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
                      process_batches=False):
     with open(input_file_path, "w", buffering=1, encoding='latin1') as f_pred, open(target_file_path, "w",
                                                                                     buffering=1,
@@ -186,7 +186,7 @@ def do_evaluation(user_config, process_batches=False):
 
     input_file_path = "../log/predicted_fr_1.txt"
     target_file_path = "../log/true_fr_1.txt"
-    sacrebelu_metric(transformer_model,
+    sacrebleu_metric(transformer_model,
                      input_file_path,
                      target_file_path,
                      tokenizer_en,
