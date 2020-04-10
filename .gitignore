@@ -139,6 +139,8 @@ output.txt
 
 scripts/rsync_from_server.sh
 scripts/rsync_to_server.sh
-scripts/slurm-*
+#scripts/slurm-*
 log/
 #model/
+scripts/slurm-357442.out
+scripts/slurm-357442.out
