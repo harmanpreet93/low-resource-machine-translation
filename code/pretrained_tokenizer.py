@@ -1,6 +1,8 @@
 from transformers import AutoTokenizer
 import re
 
+# Refer to bottom of file for a usage example
+
 # IMPORTANT: this tokenizer is compatible with train.lang1 and train.lang2 files only.
 # The unaligned.en and unaligned.fr files must be pre-processed before they are used!
 # The pre-processed unaligned.en and unaligned.fr files are available in either of these locations:
