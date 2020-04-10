@@ -28,23 +28,29 @@ class DataLoader:
         # read files
         # TODO: check if encoding='UTF-8' argument should be passed or not
         aligned_sentences_en = io.open(self.aligned_path_en).read().strip().split('\n')
-        aligned_sentences_fr = io.open(self.aligned_path_fr, encoding='latin1').read().strip().split('\n')
-
         # TODO: Add pre-processing steps for English language: removing punctuation
         # tokenize and automatically add
         encoded_sequences_en = [self.tokenizer_en.encode(sentence.lower()) for sentence in aligned_sentences_en]
-        encoded_sequences_fr = [self.tokenizer_fr.encode(sentence) for sentence in aligned_sentences_fr]
-
         # pad_sequences automatically infers max length
         padded_sequences_en = pad_sequences(encoded_sequences_en,
                                             padding='post',
                                             value=self.tokenizer_en.pad_token_id)
 
-        padded_sequences_fr = pad_sequences(encoded_sequences_fr,
-                                            padding='post',
-                                            value=self.tokenizer_fr.pad_token_id)
+        # self.aligned_path_fr can be None while testing
+        if self.aligned_path_fr is not None:
+            aligned_sentences_fr = io.open(self.aligned_path_fr, encoding='latin1').read().strip().split('\n')
+            encoded_sequences_fr = [self.tokenizer_fr.encode(sentence) for sentence in aligned_sentences_fr]
+            padded_sequences_fr = pad_sequences(encoded_sequences_fr,
+                                                padding='post',
+                                                value=self.tokenizer_fr.pad_token_id)
+        else:
+            aligned_sentences_fr = [None] * len(encoded_sequences_en)
+            padded_sequences_fr = [None] * len(encoded_sequences_en)
 
-        # aligned_sentences_fr is required for final evaluation (ignore for training)
+        # both files should have same number of examples
+        assert len(padded_sequences_en) == len(padded_sequences_fr)
+
+        # aligned_sentences_fr is required for evaluation (ignore for training)
         if self.shuffle:
             self.data_loader = tf.data.Dataset.from_tensor_slices(
                 (padded_sequences_en, padded_sequences_fr, aligned_sentences_fr)).cache().shuffle(
