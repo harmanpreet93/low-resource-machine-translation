@@ -1,18 +1,14 @@
-from train_transformer_model import *
-from evaluator import *
+import argparse
+from evaluator import compute_bleu
+from transformers import AutoTokenizer
+from data_loader import DataLoader
+from train_transformer_model import load_file
+from transformer import *
 
 """Evaluate"""
 
 
 def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=40):
-    # # inp sentence is english, hence adding the start and end token
-    # # inp_sentence = tokenizer_en.encode(inp_sentence)
-    # encoder_input = tf.expand_dims(inp_sentence, 0)
-    # # as the target is french, the first word to the transformer
-    # # should be the french start token.
-    # decoder_input = [tokenizer_fr.bos_token_id]
-    # output = tf.expand_dims(decoder_input, 0)
-
     encoder_input = tf.convert_to_tensor(inputs)
     decoder_input = tf.expand_dims([tokenizer_fr.bos_token_id] * inputs.shape[0], axis=1)
     output = decoder_input
@@ -60,16 +56,11 @@ def translate_batch(model, inp, tokenizer_en, tokenizer_fr, max_length=512):
     return predicted_sentences
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
-    args = parser.parse_args()
-    user_config = load_file(args.config)
-
+def do_evaluation(user_config):
     pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
     tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
 
-    pretrained_tokenizer_path_fr = user_config["tokenizer_path_en"]
+    pretrained_tokenizer_path_fr = user_config["tokenizer_path_fr"]
     tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
 
     # data loader
@@ -125,6 +116,14 @@ def main():
     # compute bleu score
     if user_config["compute_bleu"]:
         compute_bleu(input_file_path, target_file_path, print_all_scores=False)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
+    args = parser.parse_args()
+    user_config = load_file(args.config)
+    do_evaluation(user_config)
 
 
 if __name__ == "__main__":
