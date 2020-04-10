@@ -1,1 +1,1 @@
-{"vocab_size": 60000, "model_type": "roberta"}
+{"model_type": "roberta", "vocab_size": 25000}

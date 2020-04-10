@@ -16,7 +16,7 @@ echo
 # For example, if training an english tokenizer, training_folder will contain - unaligned.en and train_en.lang1
 
 python ../code/custom_tokenizer_trainer.py \
-            --vocab_size 30000 \
+            --vocab_size 25000 \
             --lowercase True \
             --min_frequency 2 \
             --training_folder ../../tokenizer_train_folder_en \
@@ -30,7 +30,7 @@ echo
 # Note: Keep lowercase=False for french
 
 python ../code/custom_tokenizer_trainer.py \
-            --vocab_size 30000 \
+            --vocab_size 25000 \
             --lowercase False \
             --min_frequency 2 \
             --training_folder ../../tokenizer_train_folder_fr \
