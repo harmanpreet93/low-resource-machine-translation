@@ -17,7 +17,9 @@ def load_file(path):
 
 def sacrebelu_metric(model, input_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset,
                      process_batches=False):
-    with open(input_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
+    with open(input_file_path, "w", buffering=1, encoding='latin1') as f_pred, open(target_file_path, "w",
+                                                                                    buffering=1,
+                                                                                    encoding='latin1') as f_true:
         for batch, (en_, fr_, fr) in enumerate(test_dataset):
             # evaluations possibly faster in batches (??) - TODO: verify
             if process_batches:
@@ -115,7 +117,7 @@ def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
 def sequences_to_texts(tokenizer, pred):
     # 2 pass decoder: for batch evaluation (hack!)
     decoded_text = tokenizer.decode(pred, clean_up_tokenization_spaces=False).split(tokenizer.eos_token)[0]
-    decoded_text_ = tokenizer.decode(tokenizer.encode(decoded_text, clean_up_tokenization_spaces=False),
+    decoded_text_ = tokenizer.decode(tokenizer.encode(decoded_text), clean_up_tokenization_spaces=False,
                                      skip_special_tokens=True)
     return decoded_text_
 
