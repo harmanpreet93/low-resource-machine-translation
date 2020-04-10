@@ -1,3 +1,4 @@
+import os
 import time
 from transformer import *
 from transformers import AutoTokenizer
@@ -42,7 +43,6 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
 
     val_loss(loss)
     val_accuracy(tar_real, predictions)
-
 
 
 def do_training(user_config):
@@ -139,8 +139,8 @@ def do_training(user_config):
 
         print('Time taken for training {} epoch: {} secs'.format(epoch + 1, time.time() - start))
 
-        # evaluate and save model every y-epochs
-        if epoch % 2 == 0:
+        # evaluate and save model every x-epochs
+        if epoch % 3 == 0:
             start = time.time()
             print("\nRunning validation now...")
             val_loss.reset_states()
@@ -160,23 +160,20 @@ def do_training(user_config):
             print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
         if user_config["compute_bleu"]:
-            # TODO: change manual paths
-            if epoch % 200 == 0:
+            if epoch % 10 == 0:
+                pred_file_path ="../log/" + checkpoint_path.split('/')[-1] + "_" + str(epoch+1) + "-epoch_pred_fr.txt"
                 print("\nComputing BLEU while training: ")
-                input_file_path = "../log/predicted_fr_1.txt"
-                target_file_path = "../log/true_fr_1.txt"
                 sacrebleu_metric(transformer_model,
-                                 input_file_path,
-                                 target_file_path,
+                                 pred_file_path,
+                                 None,
                                  tokenizer_en,
                                  tokenizer_fr,
-                                 test_dataset,
-                                 process_batches=True
+                                 val_dataset
                                  )
 
         print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}\n'.format(epoch + 1,
-                                                                   train_loss.result(),
-                                                                   train_accuracy.result()))
+                                                                     train_loss.result(),
+                                                                     train_accuracy.result()))
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
@@ -188,6 +185,8 @@ def main():
     parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
     args = parser.parse_args()
     user_config = load_file(args.config)
+    import json
+    print(json.dumps(user_config, indent=2))
     do_training(user_config)
 
 
