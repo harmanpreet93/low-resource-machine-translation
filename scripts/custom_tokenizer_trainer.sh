@@ -20,7 +20,7 @@ python ../code/custom_tokenizer_trainer.py \
             --lowercase True \
             --min_frequency 2 \
             --training_folder ../../tokenizer_train_folder_en \
-            --path_to_save_tokenizer ../tokenizer_data_en \
+            --path_to_save_tokenizer ../tokenizer_data_en_30k \
 
 
 echo
@@ -34,4 +34,4 @@ python ../code/custom_tokenizer_trainer.py \
             --lowercase False \
             --min_frequency 2 \
             --training_folder ../../tokenizer_train_folder_fr \
-            --path_to_save_tokenizer ../tokenizer_data_fr \
+            --path_to_save_tokenizer ../tokenizer_data_fr_30k \

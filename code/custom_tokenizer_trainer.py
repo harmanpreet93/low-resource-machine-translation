@@ -52,13 +52,13 @@ class CustomTokenizerTrainer():
         with open(config_path, 'w') as fp:
             json.dump(config, fp)
 
-        tokenizer_config = {
-            "max_len": 512
-        }
-
-        config_path = os.path.join(self.save_tokenizer_path, "tokenizer_config.json")
-        with open(config_path, 'w') as fp:
-            json.dump(tokenizer_config, fp)
+        # tokenizer_config = {
+        #     "max_len": 512
+        # }
+        #
+        # config_path = os.path.join(self.save_tokenizer_path, "tokenizer_config.json")
+        # with open(config_path, 'w') as fp:
+        #     json.dump(tokenizer_config, fp)
 
         special_tokens_map = {"bos_token": "<s>", "eos_token": "</s>", "unk_token": "<unk>", "sep_token": "</s>",
                               "pad_token": "<pad>", "cls_token": "<s>", "mask_token": "<mask>"}
@@ -89,10 +89,9 @@ def main():
     args = parser.parse_args()
     print("Args: ", sys.argv[1:])
 
+    # order of special tokens is important for indexing. Let pad be token_id=0
     special_tokens = ["<pad>", "<s>", "</s>", "<unk>", "<mask>"]
-
     training_files = os.listdir(args.training_folder)
-
     # remove OS specific files from the training_folder
     try:
         training_files.remove(".DS_Store")
@@ -100,7 +99,6 @@ def main():
         pass
 
     training_files = [os.path.abspath(os.path.join(args.training_folder, x)) for x in training_files]
-
     # create custom tokenizer
     train_tokenizer_obj = CustomTokenizerTrainer(args.path_to_save_tokenizer,
                                                  training_files,
@@ -108,7 +106,6 @@ def main():
                                                  args.min_frequency,
                                                  args.lowercase,
                                                  args.vocab_size)
-
     # train your Byte Pair Tokenizer on your own training files!
     train_tokenizer_obj.train()
 
