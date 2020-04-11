@@ -1,51 +1,45 @@
-import os
-import json
 import argparse
-from pretrained_tokenizer import Tokenizer
+import time
 from data_loader import DataLoader
 from transformer import *
 from evaluator import compute_bleu
-from tqdm import tqdm
+from utils import *
 
 """Evaluate"""
 
 
-def load_file(path):
-    assert os.path.isfile(path), f"invalid config file: {path}"
-    with open(path, "r") as fd:
-        return json.load(fd)
-
-
-def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_fr, test_dataset, max_length):
-    if target_file_path == None:
+def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, test_dataset, max_length):
+    start = time.time()
+    if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
-            for batch, (en_, fr_, fr) in enumerate(test_dataset):
-                translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
+            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+                translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
     else:
         # write both prediction and target file together
         with open(pred_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
-            for batch, (en_, fr_, fr) in enumerate(test_dataset):
+            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
                 # evaluations possibly faster in batches
-                translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
-                for true, pred in zip(fr, translated_batch):
+                translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
+                for true, pred in zip(tar, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
+    print('Time taken to compute sacrebleu: {} secs'.format(time.time() - start))
 
 
-def translate_batch(model, inp, tokenizer_fr, max_length):
-    output, _ = evaluate_batch(model, inp, tokenizer_fr, max_length)
+def translate_batch(model, inp, tokenizer_tar, max_length):
+    output, _ = evaluate_batch(model, inp, tokenizer_tar, max_length)
     predicted_sentences = []
     for pred in output.numpy():
-        predicted_sentences.append(sequences_to_texts(tokenizer_fr, pred))
+        predicted_sentences.append(sequences_to_texts(tokenizer_tar, pred))
     return predicted_sentences
 
 
-def evaluate_batch(model, inputs, tokenizer_fr, max_length):
+def evaluate_batch(model, inputs, tokenizer_tar, max_length):
     encoder_input = tf.convert_to_tensor(inputs)
-    decoder_input = tf.expand_dims([tokenizer_fr.bos_token_id] * inputs.shape[0], axis=1)
+    decoder_input = tf.expand_dims([tokenizer_tar.bos_token_id] * inputs.shape[0], axis=1)
     output = decoder_input
     attention_weights = None
 
@@ -67,7 +61,7 @@ def evaluate_batch(model, inputs, tokenizer_fr, max_length):
         predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
         # return the result if the predicted_id is equal to the end token
-        if (predicted_id == tokenizer_fr.eos_token_id).numpy().all():
+        if (predicted_id == tokenizer_tar.eos_token_id).numpy().all():
             return tf.squeeze(output, axis=0), attention_weights
 
         # concatenate the predicted_id to the output which is given to the decoder
@@ -88,19 +82,18 @@ def sequences_to_texts(tokenizer, pred):
 
 
 def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path):
-    # load pre-trained tokenizer
-    pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
-    tokenizer_en = Tokenizer('en', pretrained_tokenizer_path_en, max_length=user_config["max_length_en"])
+    inp_language = user_config["inp_language"]
+    target_language = user_config["target_language"]
 
-    pretrained_tokenizer_path_fr = user_config["tokenizer_path_fr"]
-    tokenizer_fr = Tokenizer('en', pretrained_tokenizer_path_fr, max_length=user_config["max_length_fr"])
+    # load pre-trained tokenizer
+    tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
     # data loader
     test_dataloader = DataLoader(user_config["transformer_batch_size"],
                                  input_file_path,
                                  target_file_path,
-                                 tokenizer_en,
-                                 tokenizer_fr,
+                                 tokenizer_inp,
+                                 tokenizer_tar,
                                  shuffle=False)
     test_dataset = test_dataloader.get_data_loader()
 
@@ -110,8 +103,8 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                          beta_2=0.98,
                                          epsilon=1e-9)
 
-    input_vocab_size = tokenizer_en.vocab_size
-    target_vocab_size = tokenizer_fr.vocab_size
+    input_vocab_size = tokenizer_inp.vocab_size
+    target_vocab_size = tokenizer_tar.vocab_size
 
     transformer_model = Transformer(user_config["transformer_num_layers"],
                                     user_config["transformer_model_dimensions"],
@@ -137,9 +130,9 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      target_file_path,
-                     tokenizer_fr,
+                     tokenizer_tar,
                      test_dataset,
-                     tokenizer_fr.MAX_LENGTH
+                     tokenizer_tar.MAX_LENGTH
                      )
 
 
@@ -149,7 +142,8 @@ def main():
     parser.add_argument("--input_file_path", help="File to generate translations for", type=str, required=True)
     parser.add_argument("--pred_file_path", help="Path to save predicted translations", type=str, required=True)
     parser.add_argument("--target_file_path",
-                        help="Path to save true translations. If you already have true translations, don't pass anything. Else this will overwrite file.",
+                        help="Path to save true translations. If you already have true translations, "
+                             "don't pass anything. Else this will overwrite file.",
                         type=str, default=None)
     args = parser.parse_args()
 

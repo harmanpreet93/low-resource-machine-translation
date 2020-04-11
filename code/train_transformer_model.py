@@ -1,10 +1,9 @@
 import time
-import json
 import argparse
 from transformer import *
-from pretrained_tokenizer import Tokenizer
+from utils import *
 from data_loader import DataLoader
-from eval_transformer_model import load_file, sacrebleu_metric, compute_bleu
+from eval_transformer_model import sacrebleu_metric, compute_bleu
 
 
 # Since the target sequences are padded, it is important
@@ -17,7 +16,7 @@ def loss_function(real, pred, loss_object, pad_token_id):
     return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
 
-def train_step(model, loss_function, loss_object, optimizer, inp, tar,
+def train_step(model, loss_object, optimizer, inp, tar,
                train_loss, train_accuracy, pad_token_id):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
@@ -39,7 +38,7 @@ def train_step(model, loss_function, loss_object, optimizer, inp, tar,
     train_accuracy(tar_real, predictions)
 
 
-def val_step(model, loss_function, loss_object, inp, tar,
+def val_step(model, loss_object, inp, tar,
              val_loss, val_accuracy, pad_token_id):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
@@ -58,33 +57,32 @@ def val_step(model, loss_function, loss_object, inp, tar,
 
 
 def do_training(user_config):
+    inp_language = user_config["inp_language"]
+    target_language = user_config["target_language"]
+
     # load pre-trained tokenizer
-    pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
-    tokenizer_en = Tokenizer('en', pretrained_tokenizer_path_en, max_length=user_config["max_length_en"])
+    tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
-    pretrained_tokenizer_path_fr = user_config["tokenizer_path_fr"]
-    tokenizer_fr = Tokenizer('en', pretrained_tokenizer_path_fr, max_length=user_config["max_length_fr"])
-
-    input_vocab_size = tokenizer_en.vocab_size
-    target_vocab_size = tokenizer_fr.vocab_size
+    input_vocab_size = tokenizer_inp.vocab_size
+    target_vocab_size = tokenizer_tar.vocab_size
 
     # data loader
-    train_aligned_path_en = user_config["train_data_path_en"]
-    train_aligned_path_fr = user_config["train_data_path_fr"]
+    train_aligned_path_inp = user_config["train_data_path_{}".format(inp_language)]
+    train_aligned_path_tar = user_config["train_data_path_{}".format(target_language)]
     train_dataloader = DataLoader(user_config["transformer_batch_size"],
-                                  train_aligned_path_en,
-                                  train_aligned_path_fr,
-                                  tokenizer_en,
-                                  tokenizer_fr)
+                                  train_aligned_path_inp,
+                                  train_aligned_path_tar,
+                                  tokenizer_inp,
+                                  tokenizer_tar)
     train_dataset = train_dataloader.get_data_loader()
 
-    val_aligned_path_en = user_config["val_data_path_en"]
-    val_aligned_path_fr = user_config["val_data_path_fr"]
+    val_aligned_path_inp = user_config["val_data_path_{}".format(inp_language)]
+    val_aligned_path_tar = user_config["val_data_path_{}".format(target_language)]
     val_dataloader = DataLoader(user_config["transformer_batch_size"],  # for fast validation increase batch size
-                                val_aligned_path_en,
-                                val_aligned_path_fr,
-                                tokenizer_en,
-                                tokenizer_fr,
+                                val_aligned_path_inp,
+                                val_aligned_path_tar,
+                                tokenizer_inp,
+                                tokenizer_tar,
                                 shuffle=False)
     val_dataset = val_dataloader.get_data_loader()
 
@@ -132,8 +130,8 @@ def do_training(user_config):
 
         # inp -> english, tar -> french
         for (batch, (inp, tar, _)) in enumerate(train_dataset):
-            train_step(transformer_model, loss_function, loss_object, optimizer, inp, tar,
-                       train_loss, train_accuracy, pad_token_id=tokenizer_fr.pad_token_id)
+            train_step(transformer_model, loss_object, optimizer, inp, tar,
+                       train_loss, train_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
 
             if batch % 50 == 0:
                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
@@ -141,8 +139,8 @@ def do_training(user_config):
 
         # inp -> english, tar -> french
         for (batch, (inp, tar, _)) in enumerate(val_dataset):
-            val_step(transformer_model, loss_function, loss_object, inp, tar,
-                     val_loss, val_accuracy, pad_token_id=tokenizer_fr.pad_token_id)
+            val_step(transformer_model, loss_object, inp, tar,
+                     val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
 
         print("After {} epochs".format(epoch + 1))
         print('Train Loss: {:.4f}, Train Accuracy: {:.4f}'.format(train_loss.result(), train_accuracy.result()))
@@ -155,18 +153,17 @@ def do_training(user_config):
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        if user_config["compute_bleu"] and epoch % 8 == 0:
-            start_belu_time = time.time()
+        if user_config["compute_bleu"] and epoch % 10 == 0:
             print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
             pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
                 epoch + 1) + "_prediction_fr.txt"
-            sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_fr, val_dataset,
-                             tokenizer_fr.MAX_LENGTH)
+            sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
+                             tokenizer_tar.MAX_LENGTH)
             print("Saved translated prediction at {}".format(pred_file_path))
-            print("-------------------------------------")
-            compute_bleu(pred_file_path, val_aligned_path_fr, print_all_scores=False)
-            print("-------------------------------------")
-            print('Time taken to compute bleu: {} secs'.format(time.time() - start_belu_time))
+            print("-----------------------------")
+            compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+            print("-----------------------------")
+
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
