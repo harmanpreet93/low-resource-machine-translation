@@ -1,7 +1,7 @@
 import os
 import json
 import argparse
-from transformers import AutoTokenizer
+from pretrained_tokenizer import Tokenizer
 from data_loader import DataLoader
 from transformer import *
 from evaluator import compute_bleu
@@ -16,28 +16,34 @@ def load_file(path):
         return json.load(fd)
 
 
-def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_en, tokenizer_fr, test_dataset):
+def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_fr, test_dataset, max_length):
     if target_file_path == None:
-        with open(pred_file_path, "w", buffering=1, encoding='latin1') as f_pred:
+        with open(pred_file_path, "w", buffering=1) as f_pred:
+            # evaluations possibly faster in batches
             for batch, (en_, fr_, fr) in tqdm(enumerate(test_dataset)):
-                # evaluations possibly faster in batches
-                translated_batch = translate_batch(model, en_, tokenizer_en, tokenizer_fr, max_length=300)
-                for pred in translated_batch:
+                translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
+                for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
     else:
-        # write both prediction and target file
-        with open(pred_file_path, "w", buffering=1, encoding='latin1') as f_pred, open(target_file_path, "w",
-                                                                                       buffering=1,
-                                                                                       encoding='latin1') as f_true:
+        # write both prediction and target file together
+        with open(pred_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
             for batch, (en_, fr_, fr) in tqdm(enumerate(test_dataset)):
                 # evaluations possibly faster in batches
-                translated_batch = translate_batch(model, en_, tokenizer_en, tokenizer_fr, max_length=300)
+                translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
                 for true, pred in zip(fr, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
 
 
-def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
+def translate_batch(model, inp, tokenizer_fr, max_length):
+    output, _ = evaluate_batch(model, inp, tokenizer_fr, max_length)
+    predicted_sentences = []
+    for pred in output.numpy():
+        predicted_sentences.append(sequences_to_texts(tokenizer_fr, pred))
+    return predicted_sentences
+
+
+def evaluate_batch(model, inputs, tokenizer_fr, max_length):
     encoder_input = tf.convert_to_tensor(inputs)
     decoder_input = tf.expand_dims([tokenizer_fr.bos_token_id] * inputs.shape[0], axis=1)
     output = decoder_input
@@ -72,27 +78,18 @@ def evaluate_batch(model, inputs, tokenizer_en, tokenizer_fr, max_length=200):
 
 
 def sequences_to_texts(tokenizer, pred):
-    # 2 pass decoder: for batch evaluation (hack!)
-    decoded_text = tokenizer.decode(pred, clean_up_tokenization_spaces=False).split(tokenizer.eos_token)[0]
-    decoded_text_ = tokenizer.decode(tokenizer.encode(decoded_text), clean_up_tokenization_spaces=False,
-                                     skip_special_tokens=True)
-    return decoded_text_
-
-
-def translate_batch(model, inp, tokenizer_en, tokenizer_fr, max_length=300):
-    output, _ = evaluate_batch(model, inp, tokenizer_en, tokenizer_fr, max_length)
-    predicted_sentences = []
-    for pred in output.numpy():
-        predicted_sentences.append(sequences_to_texts(tokenizer_fr, pred))
-    return predicted_sentences
+    # split because batch might flush output tokens even after eos token due to race conditions
+    decoded_text = tokenizer.decode(pred.split(tokenizer.eos_token_id)[0])
+    return decoded_text
 
 
 def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path):
+    # load pre-trained tokenizer
     pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
-    tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
+    tokenizer_en = Tokenizer('en', pretrained_tokenizer_path_en, max_length=user_config["max_length_en"])
 
     pretrained_tokenizer_path_fr = user_config["tokenizer_path_fr"]
-    tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
+    tokenizer_fr = Tokenizer('en', pretrained_tokenizer_path_fr, max_length=user_config["max_length_fr"])
 
     # data loader
     test_dataloader = DataLoader(user_config["transformer_batch_size"],
@@ -136,9 +133,9 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      target_file_path,
-                     tokenizer_en,
                      tokenizer_fr,
-                     test_dataset
+                     test_dataset,
+                     tokenizer_fr.MAX_LENGTH
                      )
 
 
@@ -165,8 +162,12 @@ def main():
                   args.target_file_path,
                   args.pred_file_path)
 
-    # compute bleu score
-    compute_bleu(args.input_file_path, args.target_file_path, print_all_scores=False)
+    if args.target_file_path is not None:
+        print("Computing bleu score now...")
+        # compute bleu score
+        compute_bleu(args.input_file_path, args.target_file_path, print_all_scores=False)
+    else:
+        print("Not predicting bleu as --target_file_path was not provided")
 
 
 if __name__ == "__main__":

@@ -1,53 +1,38 @@
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 import io
 
 
 class DataLoader:
 
-    def __init__(
-            self,
-            batch_size,
-            aligned_path_en,
-            aligned_path_fr,
-            tokenizer_en,
-            tokenizer_fr,
-            shuffle=True
-    ):
+    def __init__(self, batch_size, input_lang, target_lang, tokenizer_en, tokenizer_fr, shuffle=True):
         self.BATCH_SIZE = batch_size
-        self.aligned_path_en = aligned_path_en
-        self.aligned_path_fr = aligned_path_fr
+        self.input_lang = input_lang
+        self.target_lang = target_lang
         self.tokenizer_en = tokenizer_en
         self.tokenizer_fr = tokenizer_fr
-        # self.MAX_LENGTH = self.tokenizer_en.max_len  # 512
         self.BUFFER_SIZE = 10000  # size to shuffle
         self.shuffle = shuffle
         self.initialize()
 
     def initialize(self):
         # read files
-        # TODO: check if encoding='UTF-8' argument should be passed or not
-        aligned_sentences_en = io.open(self.aligned_path_en).read().strip().split('\n')
-        # TODO: Add pre-processing steps for English language: removing punctuation
-        # tokenize and automatically add
-        encoded_sequences_en = [self.tokenizer_en.encode(sentence.lower()) for sentence in aligned_sentences_en]
-        # pad_sequences automatically infers max length
-        padded_sequences_en = pad_sequences(encoded_sequences_en,
-                                            padding='post',
-                                            value=self.tokenizer_en.pad_token_id)
+        # TODO: check if encoding='UTF-8' or 'latin-1' argument should be passed?
+        # TODO: Add pre-processing steps for English language if not done already before this point: removing punctuation
+
+        aligned_sentences_en = io.open(self.input_lang).read().strip().split('\n')
+        # tokenize automatically add special tokens, then pad it to max length
+        padded_sequences_en = [self.tokenizer_en.encode(sentence.lower())["input_ids"] for sentence in
+                               aligned_sentences_en]
 
         # self.aligned_path_fr can be None while testing
-        if self.aligned_path_fr is not None:
-            aligned_sentences_fr = io.open(self.aligned_path_fr, encoding='latin1').read().strip().split('\n')
-            encoded_sequences_fr = [self.tokenizer_fr.encode(sentence) for sentence in aligned_sentences_fr]
-            padded_sequences_fr = pad_sequences(encoded_sequences_fr,
-                                                padding='post',
-                                                value=self.tokenizer_fr.pad_token_id)
+        if self.target_lang is not None:
+            aligned_sentences_fr = io.open(self.target_lang).read().strip().split('\n')
+            padded_sequences_fr = [self.tokenizer_fr.encode(sentence)["input_ids"] for sentence in aligned_sentences_fr]
         else:
-            aligned_sentences_fr = [None] * len(encoded_sequences_en)
-            padded_sequences_fr = [None] * len(encoded_sequences_en)
+            aligned_sentences_fr = [None] * len(aligned_sentences_en)
+            padded_sequences_fr = [None] * len(padded_sequences_en)
 
-        # both files should have same number of examples
+        # both input and target should have same number of examples
         assert len(padded_sequences_en) == len(padded_sequences_fr)
 
         # aligned_sentences_fr is required for evaluation (ignore for training)

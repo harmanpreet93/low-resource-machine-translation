@@ -1,13 +1,24 @@
-import os
 import time
-from transformer import *
-from transformers import AutoTokenizer
-from data_loader import DataLoader
+import json
 import argparse
-from eval_transformer_model import load_file, sacrebleu_metric
+from transformer import *
+from pretrained_tokenizer import Tokenizer
+from data_loader import DataLoader
+from eval_transformer_model import load_file, sacrebleu_metric, compute_bleu
 
 
-def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accuracy):
+# Since the target sequences are padded, it is important
+# to apply a padding mask when calculating the loss.
+def loss_function(real, pred, loss_object, pad_token_id):
+    mask = tf.math.logical_not(tf.math.equal(real, pad_token_id))
+    loss_ = loss_object(real, pred)
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
+    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+
+
+def train_step(model, loss_function, loss_object, optimizer, inp, tar,
+               train_loss, train_accuracy, pad_token_id):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
@@ -19,7 +30,7 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
                                enc_padding_mask,
                                combined_mask,
                                dec_padding_mask)
-        loss = loss_function(tar_real, predictions)
+        loss = loss_function(tar_real, predictions, loss_object, pad_token_id)
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -28,7 +39,8 @@ def train_step(model, loss_function, optimizer, inp, tar, train_loss, train_accu
     train_accuracy(tar_real, predictions)
 
 
-def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
+def val_step(model, loss_function, loss_object, inp, tar,
+             val_loss, val_accuracy, pad_token_id):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
@@ -39,7 +51,7 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
                            enc_padding_mask,
                            combined_mask,
                            dec_padding_mask)
-    loss = loss_function(tar_real, predictions)
+    loss = loss_function(tar_real, predictions, loss_object, pad_token_id)
 
     val_loss(loss)
     val_accuracy(tar_real, predictions)
@@ -47,14 +59,11 @@ def val_step(model, loss_function, inp, tar, val_loss, val_accuracy):
 
 def do_training(user_config):
     # load pre-trained tokenizer
-    # make sure the path contains files:
-    # config.json, merges.txt, vocab.json, tokenizer_config.json, special_tokens_map.json
-    # code to train new tokenizer is in train_custom_tokenizer.py
     pretrained_tokenizer_path_en = user_config["tokenizer_path_en"]
-    tokenizer_en = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_en)
+    tokenizer_en = Tokenizer('en', pretrained_tokenizer_path_en, max_length=user_config["max_length_en"])
 
     pretrained_tokenizer_path_fr = user_config["tokenizer_path_fr"]
-    tokenizer_fr = AutoTokenizer.from_pretrained(pretrained_tokenizer_path_fr)
+    tokenizer_fr = Tokenizer('en', pretrained_tokenizer_path_fr, max_length=user_config["max_length_fr"])
 
     input_vocab_size = tokenizer_en.vocab_size
     target_vocab_size = tokenizer_fr.vocab_size
@@ -71,31 +80,20 @@ def do_training(user_config):
 
     val_aligned_path_en = user_config["val_data_path_en"]
     val_aligned_path_fr = user_config["val_data_path_fr"]
-    val_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,  # for fast validation
+    val_dataloader = DataLoader(user_config["transformer_batch_size"],  # for fast validation increase batch size
                                 val_aligned_path_en,
                                 val_aligned_path_fr,
                                 tokenizer_en,
-                                tokenizer_fr)
+                                tokenizer_fr,
+                                shuffle=False)
     val_dataset = val_dataloader.get_data_loader()
-
-    test_aligned_path_en = user_config["test_data_path_en"]
-    test_aligned_path_fr = user_config["test_data_path_fr"]
-    test_dataloader = DataLoader(user_config["transformer_batch_size"],
-                                 test_aligned_path_en,
-                                 test_aligned_path_fr,
-                                 tokenizer_en,
-                                 tokenizer_fr,
-                                 shuffle=False)
-    test_dataset = test_dataloader.get_data_loader()
 
     learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
                                          beta_2=0.98,
                                          epsilon=1e-9)
-
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
     val_loss = tf.keras.metrics.Mean(name='val_loss')
@@ -115,7 +113,7 @@ def do_training(user_config):
                                optimizer=optimizer)
 
     checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
@@ -128,52 +126,44 @@ def do_training(user_config):
         start = time.time()
         train_loss.reset_states()
         train_accuracy.reset_states()
+        val_loss.reset_states()
+        val_accuracy.reset_states()
 
         # inp -> english, tar -> french
         for (batch, (inp, tar, _)) in enumerate(train_dataset):
-            train_step(transformer_model, loss_object, optimizer, inp, tar, train_loss, train_accuracy)
+            train_step(transformer_model, loss_function, loss_object, optimizer, inp, tar,
+                       train_loss, train_accuracy, pad_token_id=tokenizer_fr.pad_token_id)
 
             if batch % 50 == 0:
                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
+        # inp -> english, tar -> french
+        for (batch, (inp, tar, _)) in enumerate(val_dataset):
+            val_step(transformer_model, loss_function, loss_object, inp, tar,
+                     val_loss, val_accuracy, pad_token_id=tokenizer_fr.pad_token_id)
+
+        print('Epoch {} Train Loss: {:.4f}, Val Loss: {:.4f}, Train Accuracy: {:.4f}, Val Accuracy:{:.4f}\n'.format(
+            epoch + 1, train_loss.result(), val_loss.result(), train_accuracy.result(), val_accuracy.result()))
+
         print('Time taken for training {} epoch: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
-        if epoch % 3 == 0:
-            start = time.time()
-            print("\nRunning validation now...")
-            val_loss.reset_states()
-            val_accuracy.reset_states()
-            # inp -> english, tar -> french
-            for (batch, (inp, tar, _)) in enumerate(val_dataset):
-                val_step(transformer_model, loss_object, inp, tar, val_loss, val_accuracy)
-
-            print('Val: Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
-                                                                     val_loss.result(),
-                                                                     val_accuracy.result()))
-
-            print('Time taken for validation {} epoch: {} secs'.format(epoch + 1, time.time() - start))
-
+        if (epoch + 1) % 5 == 0:
             # save model every y-epochs
             ckpt_save_path = ckpt_manager.save()
-            print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
+            print('Saving checkpoint at epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        if user_config["compute_bleu"]:
-            if epoch % 10 == 0:
-                pred_file_path ="../log/" + checkpoint_path.split('/')[-1] + "_" + str(epoch+1) + "-epoch_pred_fr.txt"
-                print("\nComputing BLEU while training: ")
-                sacrebleu_metric(transformer_model,
-                                 pred_file_path,
-                                 None,
-                                 tokenizer_en,
-                                 tokenizer_fr,
-                                 val_dataset
-                                 )
-
-        print('Train: Epoch {} Loss {:.4f} Accuracy {:.4f}\n'.format(epoch + 1,
-                                                                     train_loss.result(),
-                                                                     train_accuracy.result()))
+        if user_config["compute_bleu"] and (epoch + 1) % 10 == 0:
+            print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
+            pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+                epoch + 1) + "_prediction_fr.txt"
+            sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_fr, val_dataset,
+                             tokenizer_fr.MAX_LENGTH)
+            print("Saved translated prediction at {}".format(pred_file_path))
+            print("-------------------------------------")
+            compute_bleu(pred_file_path, val_aligned_path_fr, print_all_scores=False)
+            print("-------------------------------------")
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
@@ -185,7 +175,6 @@ def main():
     parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
     args = parser.parse_args()
     user_config = load_file(args.config)
-    import json
     print(json.dumps(user_config, indent=2))
     do_training(user_config)
 

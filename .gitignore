@@ -142,7 +142,5 @@ scripts/rsync_to_server.sh
 #scripts/slurm-*
 log/
 #model/
-scripts/slurm-357442.out
-/tokenizer_data_en*k
-/tokenizer_data_fr*k
-scripts/slurm-357457.out
+#/tokenizer_data_en*k
+#/tokenizer_data_fr*k
