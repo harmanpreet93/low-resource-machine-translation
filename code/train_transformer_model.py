@@ -155,7 +155,8 @@ def do_training(user_config):
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        if user_config["compute_bleu"] and (epoch + 1) % 10 == 0:
+        if user_config["compute_bleu"] and epoch % 8 == 0:
+            start_belu_time = time.time()
             print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
             pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
                 epoch + 1) + "_prediction_fr.txt"
@@ -165,6 +166,7 @@ def do_training(user_config):
             print("-------------------------------------")
             compute_bleu(pred_file_path, val_aligned_path_fr, print_all_scores=False)
             print("-------------------------------------")
+            print('Time taken to compute bleu: {} secs'.format(time.time() - start_belu_time))
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()

@@ -15,4 +15,4 @@ echo
 python -u ../code/eval_transformer_model.py \
             --config ../code/user_config.json \
             --input_file_path ../data/test_en.txt \
-            --pred_file_path ../log/pred_output.txt \
+            --pred_file_path ../log/test_fr_predictions.txt \

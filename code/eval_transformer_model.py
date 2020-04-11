@@ -79,7 +79,11 @@ def evaluate_batch(model, inputs, tokenizer_fr, max_length):
 
 def sequences_to_texts(tokenizer, pred):
     # split because batch might flush output tokens even after eos token due to race conditions
-    decoded_text = tokenizer.decode(pred[pred > tokenizer.eos_token_id])
+    pad_indices = tf.where(pred == tokenizer.eos_token_id)
+    if pad_indices.shape[0] > 0:
+        index = pad_indices.numpy()[0][0]
+        pred = pred[:index]
+    decoded_text = tokenizer.decode(pred)
     return decoded_text
 
 
