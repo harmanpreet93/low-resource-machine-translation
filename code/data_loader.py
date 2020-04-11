@@ -29,8 +29,8 @@ class DataLoader:
             aligned_sentences_fr = io.open(self.target_lang).read().strip().split('\n')
             padded_sequences_fr = [self.tokenizer_fr.encode(sentence)["input_ids"] for sentence in aligned_sentences_fr]
         else:
-            aligned_sentences_fr = [None] * len(aligned_sentences_en)
-            padded_sequences_fr = [None] * len(padded_sequences_en)
+            aligned_sentences_fr = [self.tokenizer_fr.pad_token_id] * len(aligned_sentences_en)
+            padded_sequences_fr = [self.tokenizer_fr.pad_token_id] * len(padded_sequences_en)
 
         # both input and target should have same number of examples
         assert len(padded_sequences_en) == len(padded_sequences_fr)

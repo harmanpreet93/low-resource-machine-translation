@@ -123,6 +123,7 @@ def do_training(user_config):
     epochs = user_config["transformer_epochs"]
     print("\nTraining model now...")
     for epoch in range(epochs):
+        print()
         start = time.time()
         train_loss.reset_states()
         train_accuracy.reset_states()
@@ -143,16 +144,16 @@ def do_training(user_config):
             val_step(transformer_model, loss_function, loss_object, inp, tar,
                      val_loss, val_accuracy, pad_token_id=tokenizer_fr.pad_token_id)
 
-        print('Epoch {} Train Loss: {:.4f}, Val Loss: {:.4f}, Train Accuracy: {:.4f}, Val Accuracy:{:.4f}\n'.format(
-            epoch + 1, train_loss.result(), val_loss.result(), train_accuracy.result(), val_accuracy.result()))
-
-        print('Time taken for training {} epoch: {} secs'.format(epoch + 1, time.time() - start))
+        print("After {} epochs".format(epoch + 1))
+        print('Train Loss: {:.4f}, Train Accuracy: {:.4f}'.format(train_loss.result(), train_accuracy.result()))
+        print('Val Loss: {:.4f}, Val Accuracy: {:.4f}'.format(val_loss.result(), val_accuracy.result()))
+        print('Time taken for training epoch {}: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
         if (epoch + 1) % 5 == 0:
             # save model every y-epochs
             ckpt_save_path = ckpt_manager.save()
-            print('Saving checkpoint at epoch {} at {}'.format(epoch + 1, ckpt_save_path))
+            print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
         if user_config["compute_bleu"] and (epoch + 1) % 10 == 0:
             print("\nComputing BLEU at epoch {}: ".format(epoch + 1))

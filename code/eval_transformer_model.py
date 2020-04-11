@@ -20,14 +20,14 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_fr, test
     if target_file_path == None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
-            for batch, (en_, fr_, fr) in tqdm(enumerate(test_dataset)):
+            for batch, (en_, fr_, fr) in enumerate(test_dataset):
                 translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
     else:
         # write both prediction and target file together
         with open(pred_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
-            for batch, (en_, fr_, fr) in tqdm(enumerate(test_dataset)):
+            for batch, (en_, fr_, fr) in enumerate(test_dataset):
                 # evaluations possibly faster in batches
                 translated_batch = translate_batch(model, en_, tokenizer_fr, max_length)
                 for true, pred in zip(fr, translated_batch):
@@ -79,7 +79,7 @@ def evaluate_batch(model, inputs, tokenizer_fr, max_length):
 
 def sequences_to_texts(tokenizer, pred):
     # split because batch might flush output tokens even after eos token due to race conditions
-    decoded_text = tokenizer.decode(pred.split(tokenizer.eos_token_id)[0])
+    decoded_text = tokenizer.decode(pred[pred > tokenizer.eos_token_id])
     return decoded_text
 
 
