@@ -78,7 +78,7 @@ def do_training(user_config):
 
     val_aligned_path_inp = user_config["val_data_path_{}".format(inp_language)]
     val_aligned_path_tar = user_config["val_data_path_{}".format(target_language)]
-    val_dataloader = DataLoader(user_config["transformer_batch_size"],  # for fast validation increase batch size
+    val_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,  # for fast validation increase batch size
                                 val_aligned_path_inp,
                                 val_aligned_path_tar,
                                 tokenizer_inp,
@@ -148,26 +148,46 @@ def do_training(user_config):
         print('Time taken for training epoch {}: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
-        if (epoch + 1) % 5 == 0:
-            # save model every y-epochs
+        if epoch % 4 == 0:
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        if user_config["compute_bleu"] and epoch % 10 == 0:
+        if user_config["compute_bleu"] and epoch % 4 == 0:
             print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
             pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
                 epoch + 1) + "_prediction_fr.txt"
             sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
                              tokenizer_tar.MAX_LENGTH)
-            print("Saved translated prediction at {}".format(pred_file_path))
             print("-----------------------------")
-            compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+            scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
             print("-----------------------------")
-
+            # append checkpoint and score to file name for easy reference
+            new_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+                epoch + 1) + "_prediction_fr_" + ckpt_save_path.split('/')[0] + "_" + str(scores) + ".txt"
+            # append score and checkpoint name to file_name
+            os.rename(pred_file_path, new_path)
+            print("Saved translated prediction at {}".format(new_path))
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
     print('Training finished. Saving checkpoint for {} epoch at {}'.format(epochs, ckpt_save_path))
+    # compute bleu score when training finished, and if bleu score wasn't already computed
+    if user_config["compute_bleu"] and epoch % 4 != 0:
+        print("\nComputing BLEU after training finished at epoch: {}: ".format(epoch + 1))
+        pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+            epoch + 1) + "_prediction_fr.txt"
+        sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
+                         tokenizer_tar.MAX_LENGTH)
+        print("-----------------------------")
+        scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+        print("-----------------------------")
+        # append checkpoint and score to file name for easy reference
+        new_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+            epoch + 1) + "_prediction_fr_" + ckpt_save_path.split('/')[0] + "_" + str(scores) + ".txt"
+        # append score and checkpoint name to file_name
+        os.rename(pred_file_path, new_path)
+        print("Saved translated prediction at {}".format(new_path))
+
 
 
 def main():

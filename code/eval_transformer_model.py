@@ -91,7 +91,7 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
     # data loader
-    test_dataloader = DataLoader(user_config["transformer_batch_size"],
+    test_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
                                  input_file_path,
                                  target_file_path,
                                  tokenizer_inp,
