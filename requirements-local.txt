@@ -61,6 +61,7 @@ thinc==7.4.0
 tornado==6.0.4
 tqdm==4.43.0
 traitlets==4.3.3
+transformers==2.7
 typing==3.7.4.1
 urllib3==1.25.8
 wasabi==0.6.0

@@ -4,6 +4,7 @@ from data_loader import DataLoader
 from transformer import *
 from evaluator import compute_bleu
 from utils import *
+from tqdm import tqdm
 
 """Evaluate"""
 
@@ -13,7 +14,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
-            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+            for batch, (inp_seq, tar_seq, tar) in tqdm(enumerate(test_dataset)):
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
@@ -62,7 +63,8 @@ def evaluate_batch(model, inputs, tokenizer_tar, max_length):
 
         # return the result if the predicted_id is equal to the end token
         if (predicted_id == tokenizer_tar.eos_token_id).numpy().all():
-            return tf.squeeze(output, axis=0), attention_weights
+            return output, attention_weights
+            # return tf.squeeze(output, axis=0), attention_weights
 
         # concatenate the predicted_id to the output which is given to the decoder
         # as its input.
