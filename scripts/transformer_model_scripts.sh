@@ -8,6 +8,7 @@
 module load python/3.7
 source /home/guest140/harman_venv/bin/activate
 
+echo
 date
 echo ~~~~~~~~~~~~Training Transformer model
 echo
