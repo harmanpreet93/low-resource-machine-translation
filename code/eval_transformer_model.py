@@ -1,7 +1,6 @@
 import argparse
 import time
 from data_loader import DataLoader
-from transformer import *
 from evaluator import compute_bleu
 from utils import *
 from tqdm import tqdm
@@ -14,7 +13,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
-            for batch, (inp_seq, tar_seq, tar) in tqdm(enumerate(test_dataset)):
+            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
@@ -99,35 +98,7 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  shuffle=False)
     test_dataset = test_dataloader.get_data_loader()
 
-    learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
-    optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                         beta_1=0.9,
-                                         beta_2=0.98,
-                                         epsilon=1e-9)
-
-    input_vocab_size = tokenizer_inp.vocab_size
-    target_vocab_size = tokenizer_tar.vocab_size
-
-    transformer_model = Transformer(user_config["transformer_num_layers"],
-                                    user_config["transformer_model_dimensions"],
-                                    user_config["transformer_num_heads"],
-                                    user_config["transformer_dff"],
-                                    input_vocab_size,
-                                    target_vocab_size,
-                                    en_input=input_vocab_size,
-                                    fr_target=target_vocab_size,
-                                    rate=user_config["transformer_dropout_rate"])
-
-    ckpt = tf.train.Checkpoint(transformer=transformer_model,
-                               optimizer=optimizer)
-
-    checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
-
-    # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
-        ckpt.restore(ckpt_manager.latest_checkpoint)
-        print('Checkpoint restored!!')
+    transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
 
     sacrebleu_metric(transformer_model,
                      pred_file_path,

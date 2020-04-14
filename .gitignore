@@ -142,5 +142,9 @@ scripts/rsync_to_server.sh
 #scripts/slurm-*
 log/
 model/
+scripts/ngrok*
+scripts/colab-ssh-jupyter.sh
+scripts/harman-setup-step-1.sh
+scripts/harman-setup-step-*
 #/tokenizer_data_en*k
 #/tokenizer_data_fr*k

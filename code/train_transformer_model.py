@@ -1,6 +1,5 @@
 import time
 import argparse
-from transformer import *
 from utils import *
 from data_loader import DataLoader
 from eval_transformer_model import sacrebleu_metric, compute_bleu
@@ -63,9 +62,6 @@ def do_training(user_config):
     # load pre-trained tokenizer
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
-    input_vocab_size = tokenizer_inp.vocab_size
-    target_vocab_size = tokenizer_tar.vocab_size
-
     # data loader
     train_aligned_path_inp = user_config["train_data_path_{}".format(inp_language)]
     train_aligned_path_tar = user_config["train_data_path_{}".format(target_language)]
@@ -86,37 +82,14 @@ def do_training(user_config):
                                 shuffle=False)
     val_dataset = val_dataloader.get_data_loader()
 
-    learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
-    optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                         beta_1=0.9,
-                                         beta_2=0.98,
-                                         epsilon=1e-9)
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
 
-    transformer_model = Transformer(user_config["transformer_num_layers"],
-                                    user_config["transformer_model_dimensions"],
-                                    user_config["transformer_num_heads"],
-                                    user_config["transformer_dff"],
-                                    input_vocab_size,
-                                    target_vocab_size,
-                                    en_input=input_vocab_size,
-                                    fr_target=target_vocab_size,
-                                    rate=user_config["transformer_dropout_rate"])
-
-    ckpt = tf.train.Checkpoint(transformer=transformer_model,
-                               optimizer=optimizer)
-
+    transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
     checkpoint_path = user_config["transformer_checkpoint_path"]
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
-
-    # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
-        ckpt.restore(ckpt_manager.latest_checkpoint)
-        print('Latest checkpoint restored!!')
 
     epochs = user_config["transformer_epochs"]
     print("\nTraining model now...")
@@ -137,57 +110,60 @@ def do_training(user_config):
                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
 
-        # inp -> english, tar -> french
-        for (batch, (inp, tar, _)) in enumerate(val_dataset):
-            val_step(transformer_model, loss_object, inp, tar,
-                     val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
-
         print("After {} epochs".format(epoch + 1))
         print('Train Loss: {:.4f}, Train Accuracy: {:.4f}'.format(train_loss.result(), train_accuracy.result()))
-        print('Val Loss: {:.4f}, Val Accuracy: {:.4f}'.format(val_loss.result(), val_accuracy.result()))
+        
+        if epoch % 2 == 0:
+            # inp -> english, tar -> french
+            for (batch, (inp, tar, _)) in enumerate(val_dataset):
+                val_step(transformer_model, loss_object, inp, tar,
+                         val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
+            print('Val Loss: {:.4f}, Val Accuracy: {:.4f}'.format(val_loss.result(), val_accuracy.result()))
+            
+
+        
         print('Time taken for training epoch {}: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
-        if epoch % 4 == 0:
+        if epoch % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        if user_config["compute_bleu"] and epoch % 4 == 0:
-            print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
-            pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-                epoch + 1) + "_prediction_fr.txt"
-            sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
-                             tokenizer_tar.MAX_LENGTH)
-            print("-----------------------------")
-            scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
-            print("-----------------------------")
-            # append checkpoint and score to file name for easy reference
-            new_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-                epoch + 1) + "_prediction_fr_" + ckpt_save_path.split('/')[0] + "_" + str(scores) + ".txt"
-            # append score and checkpoint name to file_name
-            os.rename(pred_file_path, new_path)
-            print("Saved translated prediction at {}".format(new_path))
+            if user_config["compute_bleu"]:
+                print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
+                pred_file_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+                    epoch + 1) + "_prediction_en.txt"
+                sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
+                                    tokenizer_tar.MAX_LENGTH)
+                print("-----------------------------")
+                scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+                print("-----------------------------")
+                # append checkpoint and score to file name for easy reference
+                new_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+                    epoch + 1) + "_prediction_en_{:.2f}".format(scores) + ".txt"
+                # append score and checkpoint name to file_name
+                os.rename(pred_file_path, new_path)
+                print("Saved translated prediction at {}".format(new_path))
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
     print('Training finished. Saving checkpoint for {} epoch at {}'.format(epochs, ckpt_save_path))
     # compute bleu score when training finished, and if bleu score wasn't already computed
-    if user_config["compute_bleu"] and epoch % 4 != 0:
-        print("\nComputing BLEU after training finished at epoch: {}: ".format(epoch + 1))
-        pred_file_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-            epoch + 1) + "_prediction_fr.txt"
+    if user_config["compute_bleu"] and (epochs - 1) % 5 != 0:
+        print("\nComputing BLEU after training finished at epoch: {}: ".format(epochs))
+        pred_file_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+            epochs) + "_prediction_en.txt"
         sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
                          tokenizer_tar.MAX_LENGTH)
         print("-----------------------------")
         scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
         print("-----------------------------")
         # append checkpoint and score to file name for easy reference
-        new_path = "../log/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-            epoch + 1) + "_prediction_fr_" + ckpt_save_path.split('/')[0] + "_" + str(scores) + ".txt"
+        new_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
+            epochs) + "_prediction_en_{:.2f}".format(scores) + ".txt"
         # append score and checkpoint name to file_name
         os.rename(pred_file_path, new_path)
         print("Saved translated prediction at {}".format(new_path))
-
 
 
 def main():
