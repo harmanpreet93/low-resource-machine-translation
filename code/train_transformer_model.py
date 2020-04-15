@@ -103,7 +103,10 @@ def do_training(user_config):
                                   train_aligned_path_inp,
                                   train_aligned_path_tar,
                                   tokenizer_inp,
-                                  tokenizer_tar)
+                                  tokenizer_tar,
+                                  True,
+                                  inp_language,
+                                  target_language)
     train_dataset = train_dataloader.get_data_loader()
 
     val_aligned_path_inp = user_config["val_data_path_{}".format(inp_language)]
@@ -113,7 +116,9 @@ def do_training(user_config):
                                 val_aligned_path_tar,
                                 tokenizer_inp,
                                 tokenizer_tar,
-                                shuffle=False)
+                                False,
+                                inp_language,
+                                target_language)
     val_dataset = val_dataloader.get_data_loader()
 
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')

@@ -95,7 +95,9 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  target_file_path,
                                  tokenizer_inp,
                                  tokenizer_tar,
-                                 shuffle=False)
+                                 False,
+                                 inp_language,
+                                 target_language)
     test_dataset = test_dataloader.get_data_loader()
 
     transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
