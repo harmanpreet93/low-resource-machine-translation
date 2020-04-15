@@ -8,6 +8,15 @@ from eval_transformer_model import sacrebleu_metric, compute_bleu
 # Since the target sequences are padded, it is important
 # to apply a padding mask when calculating the loss.
 def loss_function(real, pred, loss_object, pad_token_id):
+    """Calculates total loss containing cross entropy with padding ignored.
+      Args:
+        logits: Tensor of size [batch_size, length_logits, vocab_size]
+        labels: Tensor of size [batch_size, length_labels]
+        loss_object: Cross entropy loss
+        pad_token_id: Pad token id to ignore
+      Returns:
+        A scalar float tensor for loss.
+    """
     mask = tf.math.logical_not(tf.math.equal(real, pad_token_id))
     loss_ = loss_object(real, pred)
     mask = tf.cast(mask, dtype=loss_.dtype)
@@ -23,6 +32,8 @@ def train_step(model, loss_object, optimizer, inp, tar,
     enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
 
     with tf.GradientTape() as tape:
+        # training=True is only needed if there are layers with different
+        # behavior during training versus inference (e.g. Dropout).
         predictions, _ = model(inp, tar_inp,
                                True,
                                enc_padding_mask,
@@ -53,6 +64,29 @@ def val_step(model, loss_object, inp, tar,
 
     val_loss(loss)
     val_accuracy(tar_real, predictions)
+
+
+def compute_bleu_score(transformer_model, dataset, user_config, tokenizer_tar, epoch):
+    inp_language = user_config["inp_language"]
+    target_language = user_config["target_language"]
+    checkpoint_path = user_config["transformer_checkpoint_path"]
+    val_aligned_path_tar = user_config["val_data_path_{}".format(target_language)]
+    pred_file_path = "../log/log_{}_{}/".format(inp_language, target_language) + checkpoint_path.split('/')[
+        -1] + "_epoch-" + str(epoch) + "_prediction_{}.txt".format(target_language)
+
+    sacrebleu_metric(transformer_model, pred_file_path, None,
+                     tokenizer_tar, dataset,
+                     tokenizer_tar.MAX_LENGTH)
+    print("-----------------------------")
+    scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+    print("-----------------------------")
+
+    # append checkpoint and score to file name for easy reference
+    new_path = "../log/log_{}_{}/".format(inp_language, target_language) + checkpoint_path.split('/')[
+        -1] + "_epoch-" + str(epoch) + "_prediction_{}_{:.2f}".format(target_language, scores) + ".txt"
+    # append score and checkpoint name to file_name
+    os.rename(pred_file_path, new_path)
+    print("Saved translated prediction at {}".format(new_path))
 
 
 def do_training(user_config):
@@ -88,11 +122,12 @@ def do_training(user_config):
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
 
+    # load model and optimizer
     transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
-    checkpoint_path = user_config["transformer_checkpoint_path"]
 
     epochs = user_config["transformer_epochs"]
     print("\nTraining model now...")
+
     for epoch in range(epochs):
         print()
         start = time.time()
@@ -112,16 +147,14 @@ def do_training(user_config):
 
         print("After {} epochs".format(epoch + 1))
         print('Train Loss: {:.4f}, Train Accuracy: {:.4f}'.format(train_loss.result(), train_accuracy.result()))
-        
+
         if epoch % 2 == 0:
             # inp -> english, tar -> french
             for (batch, (inp, tar, _)) in enumerate(val_dataset):
                 val_step(transformer_model, loss_object, inp, tar,
                          val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
             print('Val Loss: {:.4f}, Val Accuracy: {:.4f}'.format(val_loss.result(), val_accuracy.result()))
-            
 
-        
         print('Time taken for training epoch {}: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
@@ -129,41 +162,18 @@ def do_training(user_config):
             ckpt_save_path = ckpt_manager.save()
             print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-            if user_config["compute_bleu"]:
-                print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
-                pred_file_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-                    epoch + 1) + "_prediction_en.txt"
-                sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
-                                    tokenizer_tar.MAX_LENGTH)
-                print("-----------------------------")
-                scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
-                print("-----------------------------")
-                # append checkpoint and score to file name for easy reference
-                new_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-                    epoch + 1) + "_prediction_en_{:.2f}".format(scores) + ".txt"
-                # append score and checkpoint name to file_name
-                os.rename(pred_file_path, new_path)
-                print("Saved translated prediction at {}".format(new_path))
+        if epoch % 2 == 0 and user_config["compute_bleu"]:
+            print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
+            compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, epoch + 1)
 
     # save model after last epoch
     ckpt_save_path = ckpt_manager.save()
     print('Training finished. Saving checkpoint for {} epoch at {}'.format(epochs, ckpt_save_path))
+
     # compute bleu score when training finished, and if bleu score wasn't already computed
-    if user_config["compute_bleu"] and (epochs - 1) % 5 != 0:
+    if user_config["compute_bleu"] and (epochs - 1) % 2 != 0:
         print("\nComputing BLEU after training finished at epoch: {}: ".format(epochs))
-        pred_file_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-            epochs) + "_prediction_en.txt"
-        sacrebleu_metric(transformer_model, pred_file_path, None, tokenizer_tar, val_dataset,
-                         tokenizer_tar.MAX_LENGTH)
-        print("-----------------------------")
-        scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
-        print("-----------------------------")
-        # append checkpoint and score to file name for easy reference
-        new_path = "../log/log_fr_en/" + checkpoint_path.split('/')[-1] + "_epoch-" + str(
-            epochs) + "_prediction_en_{:.2f}".format(scores) + ".txt"
-        # append score and checkpoint name to file_name
-        os.rename(pred_file_path, new_path)
-        print("Saved translated prediction at {}".format(new_path))
+        compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, epochs)
 
 
 def main():

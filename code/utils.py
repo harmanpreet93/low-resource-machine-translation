@@ -3,6 +3,7 @@ import json
 import matplotlib.pyplot as plt
 from pretrained_tokenizer import Tokenizer
 from transformer import *
+import numpy as np
 
 
 def load_file(path):
@@ -27,7 +28,18 @@ def load_tokenizers(inp_language, target_language, user_config):
 def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
     input_vocab_size = tokenizer_inp.vocab_size
     target_vocab_size = tokenizer_tar.vocab_size
+    inp_language = user_config["inp_language"]
+    target_language = user_config["target_language"]
 
+    use_pretrained_emb = user_config["use_pretrained_emb"]
+    if use_pretrained_emb:
+        pretrained_weights_inp = np.load(user_config["pretrained_emb_path_{}".format(inp_language)])
+        pretrained_weights_tar = np.load(user_config["pretrained_emb_path_{}".format(target_language)])
+    else:
+        pretrained_weights_inp = None
+        pretrained_weights_tar = None
+
+    # define custom learning scheduler
     learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
@@ -42,7 +54,9 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
                                     target_vocab_size,
                                     en_input=input_vocab_size,
                                     fr_target=target_vocab_size,
-                                    rate=user_config["transformer_dropout_rate"])
+                                    rate=user_config["transformer_dropout_rate"],
+                                    weights_inp=pretrained_weights_inp,
+                                    weights_tar=pretrained_weights_tar)
 
     ckpt = tf.train.Checkpoint(transformer=transformer_model,
                                optimizer=optimizer)

@@ -11,7 +11,7 @@ The mask indicates where pad value 0 is present: it outputs a 1 at those locatio
 
 
 def create_padding_mask(seq):
-    seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
+    seq = tf.cast(tf.math.equal(seq, 0), tf.float32)  # 0 is pad_token_id
 
     # add extra dimensions to add the padding
     # to the attention logits.
@@ -29,6 +29,7 @@ def create_look_ahead_mask(size):
     return mask  # (seq_len, seq_len)
 
 
+# Noam scheduler, was used in Transformer paper! Learning rate is increased initially for first few steps
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000):
         super(CustomSchedule, self).__init__()
@@ -241,13 +242,16 @@ class DecoderLayer(tf.keras.layers.Layer):
 
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
-                 maximum_position_encoding, rate=0.1):
+                 maximum_position_encoding, rate=0.1, weights=None):
         super(Encoder, self).__init__()
 
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
+        if weights is None:
+            self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
+        else:
+            self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model, weights=[weights])
         self.pos_encoding = positional_encoding(maximum_position_encoding,
                                                 self.d_model)
 
@@ -274,13 +278,17 @@ class Encoder(tf.keras.layers.Layer):
 
 class Decoder(tf.keras.layers.Layer):
     def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-                 maximum_position_encoding, rate=0.1):
+                 maximum_position_encoding, rate=0.1, weights=None):
         super(Decoder, self).__init__()
 
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+        if weights is None:
+            self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+        else:
+            self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model, weights=[weights])
+
         self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
 
         self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
@@ -311,14 +319,14 @@ class Decoder(tf.keras.layers.Layer):
 
 class Transformer(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
-                 target_vocab_size, en_input, fr_target, rate=0.1):
+                 target_vocab_size, en_input, fr_target, rate=0.1, weights_inp=None, weights_tar=None):
         super(Transformer, self).__init__()
 
         self.encoder = Encoder(num_layers, d_model, num_heads, dff,
-                               input_vocab_size, en_input, rate)
+                               input_vocab_size, en_input, rate, weights_inp)
 
         self.decoder = Decoder(num_layers, d_model, num_heads, dff,
-                               target_vocab_size, fr_target, rate)
+                               target_vocab_size, fr_target, rate, weights_tar)
 
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
