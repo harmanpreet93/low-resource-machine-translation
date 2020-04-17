@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import matplotlib.pyplot as plt
 from pretrained_tokenizer import Tokenizer
@@ -71,6 +72,26 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
 
     return transformer_model, optimizer, ckpt_manager
 
+
+def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_unaligned_data_path_lang2,
+                       true_data_path_lang2, num_of_times_to_add_true_data: int):
+    assert num_of_times_to_add_true_data > 0
+
+    synthetic_data_lang1 = io.open(synthetic_data_path_lang1).read().strip().split('\n')
+    true_aligned_data_lang1 = io.open(true_data_path_lang1).read().strip().split('\n')
+    true_unaligned_data_lang2 = io.open(true_unaligned_data_path_lang2).read().strip().split('\n')
+    true_aligned_data_lang2 = io.open(true_data_path_lang2).read().strip().split('\n')
+
+    new_data_lang1, new_data_lang2 = synthetic_data_lang1, true_unaligned_data_lang2
+    for i in range(num_of_times_to_add_true_data):
+        new_data_lang1 += true_aligned_data_lang1
+        new_data_lang2 += true_aligned_data_lang2
+
+    shuffle_together = list(zip(new_data_lang1, new_data_lang2))
+    np.random.shuffle(shuffle_together)
+    new_data_lang1, new_data_lang2 = zip(*shuffle_together)
+
+    return  new_data_lang1, new_data_lang2
 
 def plot_attention_weights(attention_weights, sentence, result, layer):
     """Visualize layer attention in transformer model """

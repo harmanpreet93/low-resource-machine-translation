@@ -11,7 +11,7 @@ class DataLoader:
         self.target_lang_path = target_lang_path
         self.tokenizer_inp = tokenizer_inp
         self.tokenizer_tar = tokenizer_tar
-        self.BUFFER_SIZE = 50000  # buffer size to shuffle
+        self.BUFFER_SIZE = 60000  # buffer size to shuffle
         self.shuffle = shuffle
         self.input_lang = input_lang
         self.target_lang = target_lang
@@ -21,30 +21,29 @@ class DataLoader:
         # read files
         # TODO: Add pre-processing steps for English language if not done already before this point
 
-
         aligned_sentences_inp = io.open(self.input_lang_path).read().strip().split('\n')
         # tokenizer automatically add special tokens, then pad it to max length
         if self.input_lang == "en":
             padded_sequences_inp = [self.tokenizer_inp.encode(sentence.lower())["input_ids"] for sentence in
-                                   aligned_sentences_inp]
+                                    aligned_sentences_inp]
         # lowercase only english characters
         elif self.input_lang == "fr":
             padded_sequences_inp = [self.tokenizer_inp.encode(sentence)["input_ids"] for sentence in
-                                   aligned_sentences_inp]
+                                    aligned_sentences_inp]
         else:
-            raise Exception("Unsupported language in dataloader")
+            raise Exception("Unsupported input language in dataloader: {}".format(self.input_lang))
 
         # self.aligned_path_fr can be None while testing
         if self.target_lang_path is not None:
             aligned_sentences_tar = io.open(self.target_lang_path).read().strip().split('\n')
             if self.target_lang == "fr":
                 padded_sequences_tar = [self.tokenizer_tar.encode(sentence)["input_ids"] for sentence in
-                                       aligned_sentences_tar]
-            elif self.input_lang == "en":
+                                        aligned_sentences_tar]
+            elif self.target_lang == "en":
                 padded_sequences_tar = [self.tokenizer_tar.encode(sentence.lower())["input_ids"] for sentence in
                                         aligned_sentences_tar]
             else:
-                raise Exception("Unsupported language in dataloader")
+                raise Exception("Unsupported target language in dataloader: {}".format(self.target_lang))
 
         else:
             aligned_sentences_tar = [self.tokenizer_tar.pad_token_id] * len(aligned_sentences_inp)

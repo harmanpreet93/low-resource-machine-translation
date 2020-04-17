@@ -3,7 +3,6 @@ import time
 from data_loader import DataLoader
 from evaluator import compute_bleu
 from utils import *
-from tqdm import tqdm
 
 """Evaluate"""
 
@@ -86,6 +85,8 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     inp_language = user_config["inp_language"]
     target_language = user_config["target_language"]
 
+    print("\n****Evaluating model from {} to {}****\n".format(inp_language, target_language))
+
     # load pre-trained tokenizer
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
@@ -95,9 +96,9 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  target_file_path,
                                  tokenizer_inp,
                                  tokenizer_tar,
-                                 False,
                                  inp_language,
-                                 target_language)
+                                 target_language,
+                                 False)
     test_dataset = test_dataloader.get_data_loader()
 
     transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
@@ -136,11 +137,11 @@ def main():
                   args.pred_file_path)
 
     if args.target_file_path is not None:
-        print("Computing bleu score now...")
+        print("\nComputing bleu score now...")
         # compute bleu score
         compute_bleu(args.input_file_path, args.target_file_path, print_all_scores=False)
     else:
-        print("Not predicting bleu as --target_file_path was not provided")
+        print("\nNot predicting bleu as --target_file_path was not provided")
 
 
 if __name__ == "__main__":
