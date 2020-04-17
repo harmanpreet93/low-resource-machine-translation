@@ -15,7 +15,7 @@ Steps to run evaluation:
 
 1. Go to `scripts` folder  
 2. Edit `run_evaluator_script.sh`. Change the `--input-file-path` and `--target-file-path` as required  
-3. Run `sbatch run_evaluator_script.sh` from inside scripts folder
+3. Submit batch job: Run `sbatch run_evaluator_script.sh` from inside scripts folder
 
 
 ## Instructions for the team:
