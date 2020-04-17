@@ -18,7 +18,7 @@ Steps to run evaluation:
 3. Run `sbatch run_evaluator_script.sh` from inside scripts folder
 
 
-## Instruction for the team:  
+## Instructions for the team:
 
 ### K-Fold Strategy
 
