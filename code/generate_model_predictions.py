@@ -25,7 +25,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
                 for true, pred in zip(tar, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
-    print('Time taken to compute sacrebleu: {} secs'.format(time.time() - start))
+    print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
 
 
 def translate_batch(model, inp, tokenizer_tar, max_length):
@@ -87,9 +87,11 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
 
     print("\n****Evaluating model from {} to {}****\n".format(inp_language, target_language))
 
+    print("****Loading Sub-Word Tokenizers****")
     # load pre-trained tokenizer
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
+    print("****Loading DataLoader****")
     # data loader
     test_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
                                  input_file_path,
@@ -101,8 +103,10 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  False)
     test_dataset = test_dataloader.get_data_loader()
 
+    print("****Loading Transformer Model****")
     transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
 
+    print("****Generating Translations****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      target_file_path,
