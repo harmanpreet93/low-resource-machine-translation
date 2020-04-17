@@ -47,14 +47,14 @@ def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: b
     out = subprocess.run(["sacrebleu", "--input", pred_file_path, target_file_path, '--tokenize',
                           'none', '--sentence-level', '--score-only'],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    lines = out.stdout.split(b'\n')
+    lines = out.stdout.split('\n')
     if print_all_scores:
         print('\n'.join(lines[:-1]))
-        return -1
+        # return -1
     else:
         scores = [float(x) for x in lines[:-1]]
         print('final avg bleu score: {:.2f}'.format(sum(scores) / len(scores)))
-        return sum(scores) / len(scores)
+        # return sum(scores) / len(scores)
 
 
 def main():
