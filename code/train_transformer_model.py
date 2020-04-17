@@ -201,6 +201,8 @@ def main():
     parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
     args = parser.parse_args()
     user_config = load_file(args.config)
+    seed = user_config["random_seed"]
+    set_seed(seed)
     print(json.dumps(user_config, indent=2))
     do_training(user_config)
 

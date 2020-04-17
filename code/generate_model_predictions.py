@@ -134,6 +134,9 @@ def main():
     user_config = load_file(args.config)
     print(json.dumps(user_config, indent=2))
 
+    seed = user_config["random_seed"]
+    set_seed(seed)
+
     # generate translations
     do_evaluation(user_config,
                   args.input_file_path,

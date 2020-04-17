@@ -7,6 +7,10 @@ from transformer import *
 import numpy as np
 
 
+def set_seed(seed):
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+
 def load_file(path):
     assert os.path.isfile(path), f"invalid config file: {path}"
     with open(path, "r") as fd:
