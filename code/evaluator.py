@@ -2,7 +2,6 @@ import argparse
 import subprocess
 import tempfile
 
-
 def generate_predictions(input_file_path: str, pred_file_path: str):
     """Generates predictions for the machine translation task (EN->FR).
 
@@ -21,9 +20,15 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
 
     ##### MODIFY BELOW #####
     from generate_model_predictions import do_evaluation
+    from utils import load_file, set_seed
+    import json
 
     # config file containing parameters required for model: change model paths, tokenizer paths, seq lengths
-    user_config = '/project/cq-training-1/project2/submissions/team08/code/user_config.json'
+    config = '/project/cq-training-1/project2/submissions/team08/code/user_config.json'
+    user_config = load_file(config)
+    print(json.dumps(user_config, indent=2))
+    seed = user_config["random_seed"]
+    set_seed(seed)
 
     # generate translations
     do_evaluation(user_config,
