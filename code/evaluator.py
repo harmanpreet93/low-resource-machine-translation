@@ -78,10 +78,11 @@ def main():
     if args.do_not_run_model:
         compute_bleu(args.input_file_path, args.target_file_path, args.print_all_scores)
     else:
-        _, pred_file_path = tempfile.mkstemp()
+        # _, pred_file_path = tempfile.mkstemp()
+        pred_file_path = "pred_file_fr.txt"
         generate_predictions(args.input_file_path, pred_file_path)
-        compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
-
+        # compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
+        compute_bleu(pred_file_path, args.target_file_path, False)
 
 if __name__ == '__main__':
     main()

@@ -14,14 +14,14 @@ echo ~~~~~~~~Running Evaluator Script~~~~~~~~
 echo
 
 # dry run
-python ../code/evaluator.py --input-file-path ../data/test_en.txt --target-file-path ../data/test_fr.txt
+python -u ../code/evaluator.py --input-file-path ../data/test_en.txt --target-file-path ../data/test_fr.txt
 
 
 # if generating predictions from scratch, then run following command
-#python ../evaluator.py --input-file-path inputs.txt --target-file-path targets.txt
+#python -u ../evaluator.py --input-file-path inputs.txt --target-file-path targets.txt
 
 # if predictions already created, run the following command. Note the --do-not-run-model flag
-# python evaluator.py --input-file-path predictions.txt --target-file-path targets.txt --do-not-run-model
+# python -u evaluator.py --input-file-path predictions.txt --target-file-path targets.txt --do-not-run-model
 
 
 ######################################################################################################
