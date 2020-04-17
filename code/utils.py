@@ -11,6 +11,7 @@ def set_seed(seed):
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
+
 def load_file(path):
     assert os.path.isfile(path), f"invalid config file: {path}"
     with open(path, "r") as fd:
@@ -77,6 +78,7 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
     return transformer_model, optimizer, ckpt_manager
 
 
+# mix back translated dataset with aligned dataset in some pre-defined ratio
 def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_unaligned_data_path_lang2,
                        true_data_path_lang2, num_of_times_to_add_true_data: int):
     assert num_of_times_to_add_true_data > 0
@@ -95,7 +97,8 @@ def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_una
     np.random.shuffle(shuffle_together)
     new_data_lang1, new_data_lang2 = zip(*shuffle_together)
 
-    return  new_data_lang1, new_data_lang2
+    return list(new_data_lang1), list(new_data_lang2)
+
 
 def plot_attention_weights(attention_weights, sentence, result, layer):
     """Visualize layer attention in transformer model """
