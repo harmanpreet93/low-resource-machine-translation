@@ -134,18 +134,18 @@ def main():
     user_config = load_file(args.config)
     print(json.dumps(user_config, indent=2))
     seed = user_config["random_seed"]
-    set_seed(seed)
+#     set_seed(seed)
 
     # generate translations
     do_evaluation(user_config,
                   args.input_file_path,
-                  args.target_file_path,
+                  None,
                   args.pred_file_path)
 
     if args.target_file_path is not None:
         print("\nComputing bleu score now...")
         # compute bleu score
-        compute_bleu(args.input_file_path, args.target_file_path, print_all_scores=False)
+        compute_bleu(args.pred_file_path, args.target_file_path, print_all_scores=False)
     else:
         print("\nNot predicting bleu as --target_file_path was not provided")
 
