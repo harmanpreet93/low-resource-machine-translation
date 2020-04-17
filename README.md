@@ -9,17 +9,20 @@ This project was created as part of the UdeM course IFT6759 (https://admission.u
 * Mohammed Loukili
 
 
-### To run the evaluation script:
+## To run the evaluation script:
 
-Run following command to run evaluation script:
+Steps to run evaluation:
 
-```console
-python evaluator.py --input-file-path inputs.txt --target-file-path targets.txt
-```
+1. Go to `scripts` folder  
+2. Edit `run_evaluator_script.sh`. Change the `--input-file-path` and `--target-file-path` as required  
+3. Run `sbatch run_evaluator_script.sh` from inside scripts folder
+
+
+## Instruction for the team:  
 
 ### K-Fold Strategy
 
-* TBD
+* NA
 
 ### Coding Standards
 
