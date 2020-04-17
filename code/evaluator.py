@@ -20,7 +20,16 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
     """
 
     ##### MODIFY BELOW #####
-    ...
+    from generate_model_predictions import do_evaluation
+
+    # config file containing parameters required for model: change model paths, tokenizer paths, seq lengths
+    user_config = '/project/cq-training-1/project2/submissions/team08/code/user_config.json'
+
+    # generate translations
+    do_evaluation(user_config,
+                  input_file_path,
+                  target_file_path=None,
+                  pred_file_path=pred_file_path)
     ##### MODIFY ABOVE #####
 
 
