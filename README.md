@@ -11,9 +11,10 @@ This project was created as part of the UdeM course IFT6759 (https://admission.u
 
 ### To run the evaluation script:
 
+Run following command to run evaluation script:
+
 ```console
-1. TBD
-2. TBD
+python evaluator.py --input-file-path inputs.txt --target-file-path targets.txt
 ```
 
 ### K-Fold Strategy
