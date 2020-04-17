@@ -14,7 +14,7 @@ echo ~~~~~~~~Running Evaluator Script~~~~~~~~
 echo
 
 # dry run
-python ../evaluator.py --input-file-path ../data/test_en.txt --target-file-path ../data/test_fr.txt
+python ../code/evaluator.py --input-file-path ../data/test_en.txt --target-file-path ../data/test_fr.txt
 
 
 # if generating predictions from scratch, then run following command
