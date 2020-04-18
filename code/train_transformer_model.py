@@ -162,10 +162,11 @@ def do_training(user_config):
                 for (batch_, (inp, tar, _)) in enumerate(val_dataset):
                     val_step(transformer_model, loss_object, inp, tar,
                              val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
-                print('Val Loss: {:.4f}, Val Accuracy: {:.4f}\n'.format(val_loss.result(), val_accuracy.result()))
+                print('Batch {}: Val Loss: {:.4f}, Val Accuracy: {:.4f}\n'.format(batch, val_loss.result(),
+                                                                                  val_accuracy.result()))
                 if user_config["compute_bleu"]:
                     print("\nComputing BLEU at batch {}: ".format(batch))
-                    compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, epoch + 1)
+                    compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, batch * epoch + 1)
 
         print("After {} epochs".format(epoch + 1))
         print('Train Loss: {:.4f}, Train Accuracy: {:.4f}'.format(train_loss.result(), train_accuracy.result()))

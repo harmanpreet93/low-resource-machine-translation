@@ -55,11 +55,9 @@ def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: b
     lines = out.stdout.split('\n')
     if print_all_scores:
         print('\n'.join(lines[:-1]))
-        # return -1
     else:
         scores = [float(x) for x in lines[:-1]]
         print('final avg bleu score: {:.2f}'.format(sum(scores) / len(scores)))
-        # return sum(scores) / len(scores)
 
 
 def main():
@@ -78,11 +76,10 @@ def main():
     if args.do_not_run_model:
         compute_bleu(args.input_file_path, args.target_file_path, args.print_all_scores)
     else:
-        # _, pred_file_path = tempfile.mkstemp()
-        pred_file_path = "pred_file_fr.txt"
+        _, pred_file_path = tempfile.mkstemp()
         generate_predictions(args.input_file_path, pred_file_path)
-        # compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
-        compute_bleu(pred_file_path, args.target_file_path, False)
+        compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
+        # compute_bleu(pred_file_path, args.target_file_path, False)
 
 if __name__ == '__main__':
     main()

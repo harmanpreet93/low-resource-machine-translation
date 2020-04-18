@@ -3,7 +3,7 @@
   "model_file": "../model/final_model_2",
   "target_model": "bert_model",
   "transformer_dropout_rate": 0.1,
-  "transformer_batch_size": 128,
+  "transformer_batch_size": 256,
   "transformer_epochs": 30,
   "transformer_num_layers": 4,
   "transformer_model_dimensions": 128,
