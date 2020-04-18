@@ -19,7 +19,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
 
     """
 
-    ##### MODIFY BELOW #####
+    # MODIFY BELOW #
     import sys
     sys.path.insert(1, '/project/cq-training-1/project2/submissions/team08/code')
     import os
@@ -41,7 +41,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
                   input_file_path,
                   target_file_path=None,
                   pred_file_path=pred_file_path)
-    ##### MODIFY ABOVE #####
+    # MODIFY ABOVE #
 
 
 def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: bool):

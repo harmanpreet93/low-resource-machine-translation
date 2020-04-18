@@ -3,8 +3,9 @@ import io
 import json
 import matplotlib.pyplot as plt
 from pretrained_tokenizer import Tokenizer
-from transformer import *
+from transformer import Transformer, CustomSchedule
 import numpy as np
+import tensorflow as tf
 
 
 def set_seed(seed):
@@ -89,7 +90,7 @@ def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_una
     true_aligned_data_lang2 = io.open(true_data_path_lang2).read().strip().split('\n')
 
     new_data_lang1, new_data_lang2 = synthetic_data_lang1, true_unaligned_data_lang2
-    for i in range(num_of_times_to_add_true_data):
+    for _ in range(num_of_times_to_add_true_data):
         new_data_lang1 += true_aligned_data_lang1
         new_data_lang2 += true_aligned_data_lang2
 

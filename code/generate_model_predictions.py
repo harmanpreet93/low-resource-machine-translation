@@ -2,7 +2,12 @@ import argparse
 import time
 from data_loader import DataLoader
 from evaluator import compute_bleu
-from utils import *
+from transformer import Transformer
+import utils
+import tensorflow as tf
+import numpy as np
+import os
+import json
 
 """Evaluate"""
 
@@ -12,16 +17,16 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
-            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+            for batch, (inp_seq, _, tar) in enumerate(test_dataset):
                 if (batch + 1) % 2 == 0:
                     print("Evaluating batch {}".format(batch))
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
-                for i, pred in enumerate(translated_batch):
+                for pred in translated_batch:
                     f_pred.write(pred.strip() + "\n")
     else:
         # write both prediction and target file together
         with open(pred_file_path, "w", buffering=1) as f_pred, open(target_file_path, "w", buffering=1) as f_true:
-            for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+            for batch, (inp_seq, _, tar) in enumerate(test_dataset):
                 # evaluations possibly faster in batches
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for true, pred in zip(tar, translated_batch):
@@ -44,8 +49,8 @@ def evaluate_batch(model, inputs, tokenizer_tar, max_length):
     output = decoder_input
     attention_weights = None
 
-    for i in range(max_length):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
+    for _ in range(max_length):
+        enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(
             encoder_input, output)
 
         # predictions.shape == (batch_size, seq_len, vocab_size)
@@ -91,7 +96,7 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
 
     print("****Loading Sub-Word Tokenizers****")
     # load pre-trained tokenizer
-    tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
+    tokenizer_inp, tokenizer_tar = utils.load_tokenizers(inp_language, target_language, user_config)
 
     print("****Initializing DataLoader****")
     # dummy data loader. required for loading checkpoint
@@ -178,10 +183,10 @@ def main():
     if args.target_file_path is not None:
         assert os.path.isfile(args.target_file_path), f"invalid target file: {args.target_file_path}"
 
-    user_config = load_file(args.config)
+    user_config = utils.load_file(args.config)
     print(json.dumps(user_config, indent=2))
     seed = user_config["random_seed"]
-    set_seed(seed)
+    utils.set_seed(seed)
 
     # generate translations
     do_evaluation(user_config,

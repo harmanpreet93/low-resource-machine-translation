@@ -111,14 +111,17 @@ def main():
     # Sample usage
     t_fr = Tokenizer(language='fr')
     tokens = t_fr.encode(
-        "( DE ) Madame la Présidente , Monsieur le Commissaire , Mesdames et Messieurs , c' est un des signes de la pauvreté absolue de notre société que nous devions encore discuter de la question de l' égalité entre les hommes et les femmes .")
+        "( DE ) Madame la Présidente , Monsieur le Commissaire , Mesdames et Messieurs , " +
+        "c' est un des signes de la pauvreté absolue de notre société que nous devions " +
+        "encore discuter de la question de l' égalité entre les hommes et les femmes .")
     print(tokens)
     text = t_fr.decode(tokens['input_ids'])
     print(text)
 
     t_en = Tokenizer(language='en')
     tokens = t_en.encode(
-        "for the second phase of the trials we just had different sizes small medium large and extra - large it 's true")
+        "for the second phase of the trials we just had different sizes small " +
+        "medium large and extra - large it 's true")
     print(tokens)
     text = t_en.decode(tokens['input_ids'])
     print(text)

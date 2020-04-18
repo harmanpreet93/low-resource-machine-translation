@@ -30,8 +30,8 @@ def list_of_examples(GRU_config, lang):
 
 
 def make_embeddings(GRU_config, embedding_model, lang):
-    """ 
-    Saves word vectors trained by an embedding model, either Word2Vec or FastText 
+    """
+    Saves word vectors trained by an embedding model, either Word2Vec or FastText
     """
     if lang == "en":
         sentences = list_of_examples(GRU_config, "en")
