@@ -8,12 +8,12 @@ from utils import *
 
 
 def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, test_dataset, max_length):
-    start = time.time()
+    # start = time.time()
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
             for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
-                if (batch + 1) % 4 == 0:
+                if (batch + 1) % 2 == 0:
                     print("Evaluating batch {}".format(batch))
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
@@ -27,7 +27,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
                 for true, pred in zip(tar, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
-    print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
+    # print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
 
 
 def translate_batch(model, inp, tokenizer_tar, max_length):
@@ -81,49 +81,6 @@ def sequences_to_texts(tokenizer, pred):
         pred = pred[:index]
     decoded_text = tokenizer.decode(pred)
     return decoded_text
-
-
-# Since the target sequences are padded, it is important
-# to apply a padding mask when calculating the loss.
-def loss_function(real, pred, loss_object, pad_token_id):
-    """Calculates total loss containing cross entropy with padding ignored.
-      Args:
-        logits: Tensor of size [batch_size, length_logits, vocab_size]
-        labels: Tensor of size [batch_size, length_labels]
-        loss_object: Cross entropy loss
-        pad_token_id: Pad token id to ignore
-      Returns:
-        A scalar float tensor for loss.
-    """
-    mask = tf.math.logical_not(tf.math.equal(real, pad_token_id))
-    loss_ = loss_object(real, pred)
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
-    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
-
-
-def train_step(model, loss_object, optimizer, inp, tar,
-               train_loss, train_accuracy, pad_token_id):
-    tar_inp = tar[:, :-1]
-    tar_real = tar[:, 1:]
-
-    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-
-    with tf.GradientTape() as tape:
-        # training=True is only needed if there are layers with different
-        # behavior during training versus inference (e.g. Dropout).
-        predictions, _ = model(inp, tar_inp,
-                               True,
-                               enc_padding_mask,
-                               combined_mask,
-                               dec_padding_mask)
-        loss = loss_function(tar_real, predictions, loss_object, pad_token_id)
-
-    gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-    train_loss(loss)
-    train_accuracy(tar_real, predictions)
 
 
 def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path):
