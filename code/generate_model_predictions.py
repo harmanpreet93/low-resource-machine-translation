@@ -180,16 +180,18 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                     weights_inp=pretrained_weights_inp,
                                     weights_tar=pretrained_weights_tar)
 
-    print("****Generating Translations after, without load weights****")
+    # print("****Generating Translations after, without load weights****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
-                     target_file_path,
+                     None,
                      tokenizer_tar,
                      dummy_dataset,
                      tokenizer_tar.MAX_LENGTH
                      )
 
-    transformer_model.load_weights('../model/final_model_2')
+    # load model
+    model_path = user_config["model_file"]
+    transformer_model.load_weights(model_path)
 
     print("****Generating Translations after, with load weights****")
     sacrebleu_metric(transformer_model,
@@ -199,56 +201,6 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                      test_dataset,
                      tokenizer_tar.MAX_LENGTH
                      )
-    #
-    # print("****Generating Translations after, with load weights****")
-    # sacrebleu_metric(transformer_model,
-    #                  pred_file_path,
-    #                  target_file_path,
-    #                  tokenizer_tar,
-    #                  test_dataset,
-    #                  tokenizer_tar.MAX_LENGTH
-    #                  )
-
-    #### delete later
-    #     train_aligned_path_inp = user_config["train_data_path_{}".format(inp_language)]
-    #     train_aligned_path_tar = user_config["train_data_path_{}".format(target_language)]
-    #     train_dataloader = DataLoader(user_config["transformer_batch_size"],
-    #                                   train_aligned_path_inp,
-    #                                   train_aligned_path_tar,
-    #                                   tokenizer_inp,
-    #                                   tokenizer_tar,
-    #                                   inp_language,
-    #                                   target_language,
-    #                                   True)
-    #     train_dataset = train_dataloader.get_data_loader()
-
-    #     # define loss and accuracy metrics
-    #     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-    #     train_loss = tf.keras.metrics.Mean(name='train_loss')
-    #     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-
-    #     for i in range(0):
-    #         # inp -> english, tar -> french
-    #         for (batch, (inp, tar, _)) in enumerate(train_dataset):
-    #             train_step(transformer_model, loss_object, optimizer, inp, tar,
-    #                        train_loss, train_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
-
-    #             if batch % 25 == 0:
-    #                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
-    #                     i + 1, batch, train_loss.result(), train_accuracy.result()))
-    #     #
-    #     # transformer_model.save_weights(filepath="../model/final_model")
-    #     # #####
-
-    # print("****Generating Translations after****")
-    # sacrebleu_metric(transformer_model,
-    #                  pred_file_path,
-    #                  target_file_path,
-    #                  tokenizer_tar,
-    #                  test_dataset,
-    #                  tokenizer_tar.MAX_LENGTH
-    #                  )
-
 
 def main():
     parser = argparse.ArgumentParser()
