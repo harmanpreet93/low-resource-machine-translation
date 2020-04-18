@@ -81,6 +81,49 @@ def sequences_to_texts(tokenizer, pred):
     return decoded_text
 
 
+# Since the target sequences are padded, it is important
+# to apply a padding mask when calculating the loss.
+def loss_function(real, pred, loss_object, pad_token_id):
+    """Calculates total loss containing cross entropy with padding ignored.
+      Args:
+        logits: Tensor of size [batch_size, length_logits, vocab_size]
+        labels: Tensor of size [batch_size, length_labels]
+        loss_object: Cross entropy loss
+        pad_token_id: Pad token id to ignore
+      Returns:
+        A scalar float tensor for loss.
+    """
+    mask = tf.math.logical_not(tf.math.equal(real, pad_token_id))
+    loss_ = loss_object(real, pred)
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
+    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+
+
+def train_step(model, loss_object, optimizer, inp, tar,
+               train_loss, train_accuracy, pad_token_id):
+    tar_inp = tar[:, :-1]
+    tar_real = tar[:, 1:]
+
+    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+
+    with tf.GradientTape() as tape:
+        # training=True is only needed if there are layers with different
+        # behavior during training versus inference (e.g. Dropout).
+        predictions, _ = model(inp, tar_inp,
+                               True,
+                               enc_padding_mask,
+                               combined_mask,
+                               dec_padding_mask)
+        loss = loss_function(tar_real, predictions, loss_object, pad_token_id)
+
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    train_loss(loss)
+    train_accuracy(tar_real, predictions)
+
+
 def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path):
     inp_language = user_config["inp_language"]
     target_language = user_config["target_language"]
@@ -93,6 +136,17 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
 
     print("****Loading DataLoader****")
     # data loader
+    dummy_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
+                                  user_config["dummy_data_path_{}".format(inp_language)],
+                                  None,
+                                  tokenizer_inp,
+                                  tokenizer_tar,
+                                  inp_language,
+                                  target_language,
+                                  False)
+    dummy_dataset = dummy_dataloader.get_data_loader()
+
+    # data loader
     test_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
                                  input_file_path,
                                  target_file_path,
@@ -103,10 +157,41 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  False)
     test_dataset = test_dataloader.get_data_loader()
 
-    print("****Loading Transformer Model****")
-    transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
+    input_vocab_size = tokenizer_inp.vocab_size
+    target_vocab_size = tokenizer_tar.vocab_size
 
-    print("****Generating Translations****")
+    use_pretrained_emb = user_config["use_pretrained_emb"]
+    if use_pretrained_emb:
+        pretrained_weights_inp = np.load(user_config["pretrained_emb_path_{}".format(inp_language)])
+        pretrained_weights_tar = np.load(user_config["pretrained_emb_path_{}".format(target_language)])
+    else:
+        pretrained_weights_inp = None
+        pretrained_weights_tar = None
+
+    transformer_model = Transformer(user_config["transformer_num_layers"],
+                                    user_config["transformer_model_dimensions"],
+                                    user_config["transformer_num_heads"],
+                                    user_config["transformer_dff"],
+                                    input_vocab_size,
+                                    target_vocab_size,
+                                    en_input=input_vocab_size,
+                                    fr_target=target_vocab_size,
+                                    rate=user_config["transformer_dropout_rate"],
+                                    weights_inp=pretrained_weights_inp,
+                                    weights_tar=pretrained_weights_tar)
+
+    print("****Generating Translations after, without load weights****")
+    sacrebleu_metric(transformer_model,
+                     pred_file_path,
+                     target_file_path,
+                     tokenizer_tar,
+                     dummy_dataset,
+                     tokenizer_tar.MAX_LENGTH
+                     )
+
+    transformer_model.load_weights('../model/final_model_2')
+
+    print("****Generating Translations after, with load weights****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      target_file_path,
@@ -114,6 +199,55 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                      test_dataset,
                      tokenizer_tar.MAX_LENGTH
                      )
+    #
+    # print("****Generating Translations after, with load weights****")
+    # sacrebleu_metric(transformer_model,
+    #                  pred_file_path,
+    #                  target_file_path,
+    #                  tokenizer_tar,
+    #                  test_dataset,
+    #                  tokenizer_tar.MAX_LENGTH
+    #                  )
+
+    #### delete later
+    #     train_aligned_path_inp = user_config["train_data_path_{}".format(inp_language)]
+    #     train_aligned_path_tar = user_config["train_data_path_{}".format(target_language)]
+    #     train_dataloader = DataLoader(user_config["transformer_batch_size"],
+    #                                   train_aligned_path_inp,
+    #                                   train_aligned_path_tar,
+    #                                   tokenizer_inp,
+    #                                   tokenizer_tar,
+    #                                   inp_language,
+    #                                   target_language,
+    #                                   True)
+    #     train_dataset = train_dataloader.get_data_loader()
+
+    #     # define loss and accuracy metrics
+    #     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+    #     train_loss = tf.keras.metrics.Mean(name='train_loss')
+    #     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
+
+    #     for i in range(0):
+    #         # inp -> english, tar -> french
+    #         for (batch, (inp, tar, _)) in enumerate(train_dataset):
+    #             train_step(transformer_model, loss_object, optimizer, inp, tar,
+    #                        train_loss, train_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
+
+    #             if batch % 25 == 0:
+    #                 print('Train: Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+    #                     i + 1, batch, train_loss.result(), train_accuracy.result()))
+    #     #
+    #     # transformer_model.save_weights(filepath="../model/final_model")
+    #     # #####
+
+    # print("****Generating Translations after****")
+    # sacrebleu_metric(transformer_model,
+    #                  pred_file_path,
+    #                  target_file_path,
+    #                  tokenizer_tar,
+    #                  test_dataset,
+    #                  tokenizer_tar.MAX_LENGTH
+    #                  )
 
 
 def main():
@@ -134,7 +268,7 @@ def main():
     user_config = load_file(args.config)
     print(json.dumps(user_config, indent=2))
     seed = user_config["random_seed"]
-#     set_seed(seed)
+    set_seed(seed)
 
     # generate translations
     do_evaluation(user_config,
