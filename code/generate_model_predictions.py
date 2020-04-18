@@ -13,6 +13,8 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
             for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+                if (batch+1) % 4 == 0:
+                    print("Evaluating batch {}".format(batch))
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
