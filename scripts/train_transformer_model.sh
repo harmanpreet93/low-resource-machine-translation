@@ -15,7 +15,7 @@ echo
 
 python -u ../code/train_transformer_model.py \
             --config ../code/user_config.json \
-
+            2>&1 | tee -a ../log/log_en_fr/log.training.log \
 
 #date
 #echo ~~~~~~~~~~~~Evaluating Transformer model

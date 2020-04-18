@@ -1,21 +1,28 @@
 import time
-import utils_GRU
 import argparse
 import tensorflow as tf
 import pandas as pd
 import numpy as np
+import utils_GRU
+import GRU_embeddings
 from sklearn.model_selection import train_test_split
 
 
 # Encoder with GRU gates
 class Encoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, enc_units, batch_sz):
+    def __init__(self, vocab_size, embedding_dim, enc_units, batch_sz, weights=None):
         super(Encoder, self).__init__()
         self.batch_sz = batch_sz
         self.enc_units = enc_units
+
         # using pre-trained embeddings
-        self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
-                                                   output_dim=embedding_dim)
+        if weights is None:
+            self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
+                                                       output_dim=embedding_dim)
+        else:
+            self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
+                                                       output_dim=embedding_dim,
+                                                       weights=[weights], trainable=False)
         self.gru = tf.keras.layers.GRU(
             self.enc_units,
             return_sequences=True,
@@ -53,13 +60,19 @@ class BahdanauAttention(tf.keras.layers.Layer):
 
 # GRU decoder
 class Decoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz):
+    def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz, weights=None):
         super(Decoder, self).__init__()
         self.batch_sz = batch_sz
         self.dec_units = dec_units
+
         # Here we specify the pre-trained embeddings
-        self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
-                                                   output_dim=embedding_dim)
+        if weights is None:
+            self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
+                                                       output_dim=embedding_dim)
+        else:
+            self.embedding = tf.keras.layers.Embedding(input_dim=vocab_size,
+                                                       output_dim=embedding_dim,
+                                                       weights=[weights], trainable=False)
         self.gru = tf.keras.layers.GRU(
             self.dec_units,
             return_sequences=True,
@@ -116,7 +129,10 @@ def train_step(inp, targ, enc_hidden, targ_lang, batch_sz, encoder, decoder,
     return batch_loss
 
 
-def do_training(GRU_config):
+def do_training(args, GRU_config):
+    # reproducibility
+    utils_GRU.set_seed(GRU_config)
+
     # mapping english sentence to french sentence on the same line in a new file
     utils_GRU.combine_files(
         GRU_config["aligned_en_path"],
@@ -133,6 +149,7 @@ def do_training(GRU_config):
         test_size=0.1,
         random_state=GRU_config["random_seed"])
 
+    # using pandas in order to keep the original indices of the observations even when shuffled
     input_df, target_df = pd.DataFrame(input_tensor), pd.DataFrame(
         target_tensor)
     input_df_train, input_df_val, target_df_train, target_df_val = train_test_split(
@@ -148,6 +165,28 @@ def do_training(GRU_config):
     utils_GRU.map_indices(GRU_config, "test_en.txt", indices_en_val, "en")
     utils_GRU.map_indices(GRU_config, "test_fr.txt", indices_fr_val, "fr")
 
+    # loading pre-trained embeddings
+    if args.embedding_model == "Word2Vec":
+        en_word_vectors = utils_GRU.load_embeddings(
+            GRU_config, "Word2Vec", "en")
+        fr_word_vectors = utils_GRU.load_embeddings(
+            GRU_config, "Word2Vec", "fr")
+        # creating embedding matrix
+        en_embedding_matrix = utils_GRU.create_embedding_matrix(
+            inp_lang, GRU_config, "Word2Vec", "en")
+        fr_embedding_matrix = utils_GRU.create_embedding_matrix(
+            targ_lang, GRU_config, "Word2Vec", "fr")
+    elif args.embedding_model == "FastText":
+        en_word_vectors = utils_GRU.load_embeddings(
+            GRU_config, "FastText", "en")
+        fr_word_vectors = utils_GRU.load_embeddings(
+            GRU_config, "FastText", "en")
+        # creating embedding matrix
+        en_embedding_matrix = utils_GRU.create_embedding_matrix(
+            inp_lang, GRU_config, "FastText", "en")
+        fr_embedding_matrix = utils_GRU.create_embedding_matrix(
+            targ_lang, GRU_config, "FastText", "fr")
+
     optimizer = tf.keras.optimizers.Adam(beta_1=0.9, beta_2=0.98, epsilon=1e-9)
     buffer_size = len(input_tensor_train)
     steps_per_epoch = len(input_tensor_train) // GRU_config["batch_size"]
@@ -156,20 +195,41 @@ def do_training(GRU_config):
     dataset = tf.data.Dataset.from_tensor_slices(
         (input_tensor_train, target_tensor_train)).shuffle(buffer_size)
     dataset = dataset.batch(GRU_config["batch_size"], drop_remainder=True)
-    encoder = Encoder(
-        vocab_inp_size,
-        GRU_config["embedding_dim"],
-        GRU_config["hidden_units"],
-        GRU_config["batch_size"],
-    )
-    attention_layer = BahdanauAttention(10)
-    decoder = Decoder(
-        vocab_tar_size,
-        GRU_config["embedding_dim"],
-        GRU_config["hidden_units"],
-        GRU_config["batch_size"],
-    )
 
+    # using pre-trained embeddings or not
+    if args.embedding_model is not None:
+        encoder = Encoder(
+            vocab_inp_size,
+            GRU_config["embedding_dim"],
+            GRU_config["hidden_units"],
+            GRU_config["batch_size"],
+            weights=en_embedding_matrix
+        )
+
+        decoder = Decoder(
+            vocab_tar_size,
+            GRU_config["embedding_dim"],
+            GRU_config["hidden_units"],
+            GRU_config["batch_size"],
+            weights=fr_embedding_matrix
+        )
+    else:
+        encoder = Encoder(
+            vocab_inp_size,
+            GRU_config["embedding_dim"],
+            GRU_config["hidden_units"],
+            GRU_config["batch_size"],
+            weights=None
+        )
+        decoder = Decoder(
+            vocab_tar_size,
+            GRU_config["embedding_dim"],
+            GRU_config["hidden_units"],
+            GRU_config["batch_size"],
+            weights=None
+        )
+
+    attention_layer = BahdanauAttention(10)
     # defining checkpoints
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
                                encode=encoder,
@@ -221,11 +281,11 @@ def do_training(GRU_config):
     return optimizer, encoder, decoder
 
 
-def generate_predictions(GRU_config):
+def generate_predictions(args, GRU_config):
     """
     Function that generates predictions to file
     """
-    optimizer, encoder, decoder = do_training(GRU_config)
+    optimizer, encoder, decoder = do_training(args, GRU_config)
 
     checkpoint_path = GRU_config["GRU_checkpoint_path"]
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
@@ -300,9 +360,14 @@ def main():
         "--config",
         help="Configuration file containing training parameters",
         type=str)
+    parser.add_argument(
+        "--embedding_model",
+        help="Embedding model, either Word2Vec or FastText",
+        default=None,
+        type=str)
     args = parser.parse_args()
     GRU_config = utils_GRU.load_file(args.config)
-    generate_predictions(GRU_config)
+    generate_predictions(args, GRU_config)
 
 
 if __name__ == "__main__":

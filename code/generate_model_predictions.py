@@ -8,11 +8,13 @@ from utils import *
 
 
 def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, test_dataset, max_length):
-    start = time.time()
+    # start = time.time()
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
             for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
+                if (batch + 1) % 2 == 0:
+                    print("Evaluating batch {}".format(batch))
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
                     f_pred.write(pred.strip() + "\n")
@@ -25,7 +27,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
                 for true, pred in zip(tar, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
-    print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
+    # print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
 
 
 def translate_batch(model, inp, tokenizer_tar, max_length):
@@ -91,9 +93,20 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     # load pre-trained tokenizer
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
-    print("****Loading DataLoader****")
+    print("****Initializing DataLoader****")
+    # dummy data loader. required for loading checkpoint
+    dummy_dataloader = DataLoader(user_config["transformer_batch_size"],
+                                  user_config["dummy_data_path_{}".format(inp_language)],
+                                  None,
+                                  tokenizer_inp,
+                                  tokenizer_tar,
+                                  inp_language,
+                                  target_language,
+                                  False)
+    dummy_dataset = dummy_dataloader.get_data_loader()
+
     # data loader
-    test_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
+    test_dataloader = DataLoader(user_config["transformer_batch_size"],
                                  input_file_path,
                                  target_file_path,
                                  tokenizer_inp,
@@ -103,8 +116,42 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                                  False)
     test_dataset = test_dataloader.get_data_loader()
 
-    print("****Loading Transformer Model****")
-    transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
+    input_vocab_size = tokenizer_inp.vocab_size
+    target_vocab_size = tokenizer_tar.vocab_size
+
+    use_pretrained_emb = user_config["use_pretrained_emb"]
+    if use_pretrained_emb:
+        pretrained_weights_inp = np.load(user_config["pretrained_emb_path_{}".format(inp_language)])
+        pretrained_weights_tar = np.load(user_config["pretrained_emb_path_{}".format(target_language)])
+    else:
+        pretrained_weights_inp = None
+        pretrained_weights_tar = None
+
+    transformer_model = Transformer(user_config["transformer_num_layers"],
+                                    user_config["transformer_model_dimensions"],
+                                    user_config["transformer_num_heads"],
+                                    user_config["transformer_dff"],
+                                    input_vocab_size,
+                                    target_vocab_size,
+                                    en_input=input_vocab_size,
+                                    fr_target=target_vocab_size,
+                                    rate=user_config["transformer_dropout_rate"],
+                                    weights_inp=pretrained_weights_inp,
+                                    weights_tar=pretrained_weights_tar)
+
+    # print("****Generating Translations after, without load weights****")
+    sacrebleu_metric(transformer_model,
+                     pred_file_path,
+                     None,
+                     tokenizer_tar,
+                     dummy_dataset,
+                     tokenizer_tar.MAX_LENGTH
+                     )
+
+    print("****Loading Model****")
+    # load model
+    model_path = user_config["model_file"]
+    transformer_model.load_weights(model_path)
 
     print("****Generating Translations****")
     sacrebleu_metric(transformer_model,
@@ -139,13 +186,13 @@ def main():
     # generate translations
     do_evaluation(user_config,
                   args.input_file_path,
-                  args.target_file_path,
+                  None,
                   args.pred_file_path)
 
     if args.target_file_path is not None:
         print("\nComputing bleu score now...")
         # compute bleu score
-        compute_bleu(args.input_file_path, args.target_file_path, print_all_scores=False)
+        compute_bleu(args.pred_file_path, args.target_file_path, print_all_scores=False)
     else:
         print("\nNot predicting bleu as --target_file_path was not provided")
 

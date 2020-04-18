@@ -73,7 +73,7 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)
-        print('Latest checkpoint restored!!')
+        print('Latest checkpoint restored from path {}'.format(ckpt_manager.latest_checkpoint))
 
     return transformer_model, optimizer, ckpt_manager
 

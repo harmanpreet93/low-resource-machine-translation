@@ -12,7 +12,12 @@ date
 echo ~~~~~~~~~~~~Evaluating Transformer model
 echo
 
-python -u ../code/eval_transformer_model.py \
+export CUDA_VISIBLE_DEVICES=1
+echo "Using GPU 1 to evaluate"
+python -u ../code/generate_model_predictions.py \
             --config ../code/user_config.json \
             --input_file_path ../data/test_en.txt \
-            --pred_file_path ../log/test_fr_predictions.txt \
+            --target_file_path ../data/test_fr.txt \
+            --pred_file_path ../data/en_fr_test_en.txt \
+            2>&1 | tee -a ../log/log.en_fr_test_en.log \
+            
