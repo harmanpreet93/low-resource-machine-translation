@@ -69,7 +69,7 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
 
     checkpoint_path = user_config["transformer_checkpoint_path"]
     ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
-    
+
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)

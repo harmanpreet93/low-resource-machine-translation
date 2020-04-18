@@ -11,7 +11,9 @@ date
 echo ~~~~~~~~~~~~Training embeddings
 echo
 
-python -u /home/guest141/GRU_embeddings.py --config /home/guest141/data_project2/GRU_config.json --embedding_model Word2Vec --lang en \
+python -u /home/guest141/GRU_embeddings.py \
+          --config /home/guest141/data_project2/GRU_config.json \
+          --embedding_model Word2Vec --lang en \
 
 date
 echo ~~~~~~~~~~~~finished

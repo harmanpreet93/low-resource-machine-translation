@@ -13,7 +13,7 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
             for batch, (inp_seq, tar_seq, tar) in enumerate(test_dataset):
-                if (batch+1) % 4 == 0:
+                if (batch + 1) % 4 == 0:
                     print("Evaluating batch {}".format(batch))
                 translated_batch = translate_batch(model, inp_seq, tokenizer_tar, max_length)
                 for i, pred in enumerate(translated_batch):
@@ -136,7 +136,7 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
     # load pre-trained tokenizer
     tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
 
-    print("****Loading DataLoader****")
+    print("****Initializing DataLoader****")
     # data loader
     dummy_dataloader = DataLoader(user_config["transformer_batch_size"] * 2,
                                   user_config["dummy_data_path_{}".format(inp_language)],
@@ -191,11 +191,12 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                      tokenizer_tar.MAX_LENGTH
                      )
 
+    print("****Loading Model****")
     # load model
     model_path = user_config["model_file"]
     transformer_model.load_weights(model_path)
 
-    print("****Generating Translations after, with load weights****")
+    print("****Generating Translations****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      target_file_path,
@@ -203,6 +204,7 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
                      test_dataset,
                      tokenizer_tar.MAX_LENGTH
                      )
+
 
 def main():
     parser = argparse.ArgumentParser()
