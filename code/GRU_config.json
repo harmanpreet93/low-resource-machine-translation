@@ -1,8 +1,8 @@
 {
     "random_seed": 6759,
     "nb_epochs": 10,
-    "batch_size": 32,
-    "embedding_dim": 256,
+    "batch_size": 64,
+    "embedding_dim": 100,
     "word_embedding_dim": 100,
     "hidden_units": 512,
     "data_folder": "/project/cq-training-1/project2/teams/team08/data_GRU/",
@@ -12,5 +12,10 @@
     "train_data_path_fr": "/project/cq-training-1/project2/teams/team08/train_test/train_fr.txt",
     "val_data_path_en": "/project/cq-training-1/project2/teams/team08/train_test/test_en.txt",
     "val_data_path_fr": "/project/cq-training-1/project2/teams/team08/train_test/test_fr.txt",
-    "GRU_checkpoint_path": "/project/cq-training-1/project2/teams/team08/GRU_models"
+    "GRU_checkpoint_path": "/project/cq-training-1/project2/teams/team08/GRU_models",
+    "word_embeddings_path": "/project/cq-training-1/project2/teams/team08/GRU_wordembeddings/",
+    "pretrained_emb_w2v_en_path": "/project/cq-training-1/project2/teams/team08/GRU_wordembeddings/w2v.en",
+    "pretrained_emb_w2v_fr_path": "/project/cq-training-1/project2/teams/team08/GRU_wordembeddings/w2v.fr",
+    "pretrained_emb_fast_en_path": "/project/cq-training-1/project2/teams/team08/GRU_wordembeddings/fast.en",
+    "pretrained_emb_fast_fr_path": "/project/cq-training-1/project2/teams/team08/GRU_wordembeddings/fast.fr"
 }
