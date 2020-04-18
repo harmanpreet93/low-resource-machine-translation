@@ -16,9 +16,7 @@ echo
 # dry run
 python -u ../code/evaluator.py \
           --input-file-path ../data/test_en.txt \
-          --target-file-path ../data/test_fr.txt \
-          --print_all_scores true \
-
+          --target-file-path ../data/test_fr.txt
 
 # if generating predictions from scratch, then run following command
 #python -u ../evaluator.py --input-file-path inputs.txt --target-file-path targets.txt
