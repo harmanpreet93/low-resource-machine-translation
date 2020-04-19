@@ -1,4 +1,3 @@
-import numpy as np
 import argparse
 import utils_GRU
 from gensim.models import Word2Vec
