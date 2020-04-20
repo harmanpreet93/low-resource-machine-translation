@@ -22,7 +22,6 @@ class DataLoader:
 
     def initialize(self):
         # read files
-        # Add pre-processing steps for English language if not done already before this point
 
         aligned_sentences_inp = io.open(self.input_lang_path).read().strip().split('\n')
         # tokenizer automatically add special tokens, then pad it to max length

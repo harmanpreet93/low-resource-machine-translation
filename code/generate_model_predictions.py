@@ -129,19 +129,19 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
         pretrained_weights_inp = None
         pretrained_weights_tar = None
 
-    transformer_model = Transformer(user_config["transformer_num_layers"],
-                                    user_config["transformer_model_dimensions"],
-                                    user_config["transformer_num_heads"],
-                                    user_config["transformer_dff"],
-                                    input_vocab_size,
-                                    target_vocab_size,
-                                    en_input=input_vocab_size,
-                                    fr_target=target_vocab_size,
-                                    rate=user_config["transformer_dropout_rate"],
-                                    weights_inp=pretrained_weights_inp,
-                                    weights_tar=pretrained_weights_tar)
+    transformer_model = Transformer(
+        user_config["transformer_num_layers"],
+        user_config["transformer_model_dimensions"],
+        user_config["transformer_num_heads"],
+        user_config["transformer_dff"],
+        input_vocab_size,
+        target_vocab_size,
+        en_input=input_vocab_size,
+        fr_target=target_vocab_size,
+        rate=user_config["transformer_dropout_rate"],
+        weights_inp=pretrained_weights_inp,
+        weights_tar=pretrained_weights_tar)
 
-    # print("****Generating Translations after, without load weights****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      None,
