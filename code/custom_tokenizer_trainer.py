@@ -44,7 +44,7 @@ class CustomTokenizerTrainer:
         # This saves 2 files, which are required later by the tokenizer: merges.txt and vocab.json
         self.tokenizer.save(self.save_tokenizer_path)
 
-        # using roBERTa model, as it nis better than BERT for language modelling
+        # using roBERTa model, as it is better than BERT for language modelling
         model_type = "roberta"
         config = {
             "model_type": model_type,
