@@ -167,20 +167,12 @@ def do_training(args, GRU_config):
 
     # loading pre-trained embeddings
     if args.embedding_model == "Word2Vec":
-        en_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "Word2Vec", "en")
-        fr_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "Word2Vec", "fr")
         # creating embedding matrix
         en_embedding_matrix = utils_GRU.create_embedding_matrix(
             inp_lang, GRU_config, "Word2Vec", "en")
         fr_embedding_matrix = utils_GRU.create_embedding_matrix(
             targ_lang, GRU_config, "Word2Vec", "fr")
     elif args.embedding_model == "FastText":
-        en_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "FastText", "en")
-        fr_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "FastText", "en")
         # creating embedding matrix
         en_embedding_matrix = utils_GRU.create_embedding_matrix(
             inp_lang, GRU_config, "FastText", "en")
