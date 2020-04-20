@@ -1,8 +1,11 @@
 import time
 import argparse
-from utils import *
+import utils
 from data_loader import DataLoader
 from generate_model_predictions import sacrebleu_metric, compute_bleu
+import tensorflow as tf
+import os
+import json
 
 
 # Since the target sequences are padded, it is important
@@ -29,7 +32,7 @@ def train_step(model, loss_object, optimizer, inp, tar,
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
-    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+    enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(inp, tar_inp)
 
     with tf.GradientTape() as tape:
         # training=True is only needed if there are layers with different
@@ -53,7 +56,7 @@ def val_step(model, loss_object, inp, tar,
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
-    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+    enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(inp, tar_inp)
 
     predictions, _ = model(inp, tar_inp,
                            False,
@@ -97,7 +100,7 @@ def do_training(user_config):
 
     print("****Loading tokenizers****")
     # load pre-trained tokenizer
-    tokenizer_inp, tokenizer_tar = load_tokenizers(inp_language, target_language, user_config)
+    tokenizer_inp, tokenizer_tar = utils.load_tokenizers(inp_language, target_language, user_config)
 
     print("****Loading train dataset****")
     # train data loader
@@ -136,7 +139,8 @@ def do_training(user_config):
 
     print("****Loading transformer model****")
     # load model and optimizer
-    transformer_model, optimizer, ckpt_manager = load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
+    transformer_model, optimizer, ckpt_manager = \
+        utils.load_transformer_model(user_config, tokenizer_inp, tokenizer_tar)
 
     epochs = user_config["transformer_epochs"]
     print("\nTraining model now...")
@@ -201,9 +205,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="Configuration file containing training parameters", type=str)
     args = parser.parse_args()
-    user_config = load_file(args.config)
+    user_config = utils.load_file(args.config)
     seed = user_config["random_seed"]
-    set_seed(seed)
+    utils.set_seed(seed)
     print(json.dumps(user_config, indent=2))
     do_training(user_config)
 

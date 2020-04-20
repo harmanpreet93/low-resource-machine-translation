@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import tempfile
 
+
 def generate_predictions(input_file_path: str, pred_file_path: str):
     """Generates predictions for the machine translation task (EN->FR).
 
@@ -18,7 +19,12 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
 
     """
 
-    ##### MODIFY BELOW #####
+    # MODIFY BELOW #
+    import sys
+    sys.path.insert(1, '/project/cq-training-1/project2/submissions/team08/code')
+    import os
+    os.chdir('/project/cq-training-1/project2/submissions/team08/scripts')
+
     from generate_model_predictions import do_evaluation
     from utils import load_file, set_seed
     import json
@@ -35,7 +41,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
                   input_file_path,
                   target_file_path=None,
                   pred_file_path=pred_file_path)
-    ##### MODIFY ABOVE #####
+    # MODIFY ABOVE #
 
 
 def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: bool):
@@ -79,7 +85,7 @@ def main():
         _, pred_file_path = tempfile.mkstemp()
         generate_predictions(args.input_file_path, pred_file_path)
         compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
-        # compute_bleu(pred_file_path, args.target_file_path, False)
+
 
 if __name__ == '__main__':
     main()

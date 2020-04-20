@@ -4,8 +4,8 @@ import numpy as np
 """
 ### Masking
 
-Mask all the pad tokens in the batch of sequence. 
-It ensures that the model does not treat padding as the input. 
+Mask all the pad tokens in the batch of sequence.
+It ensures that the model does not treat padding as the input.
 The mask indicates where pad value 0 is present: it outputs a 1 at those locations, and a 0 otherwise.
 """
 
@@ -19,8 +19,8 @@ def create_padding_mask(seq):
 
 
 """
-The look-ahead mask is used to mask the future tokens in a sequence. 
-In other words,  the mask indicates which entries should not be used. 
+The look-ahead mask is used to mask the future tokens in a sequence.
+In other words,  the mask indicates which entries should not be used.
 """
 
 
