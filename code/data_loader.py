@@ -3,6 +3,9 @@ import io
 
 
 class DataLoader:
+    """
+    Data-loader to load to input and target dataset
+    """
 
     def __init__(self, batch_size, input_lang_path, target_lang_path, tokenizer_inp, tokenizer_tar, input_lang,
                  target_lang, shuffle=True):
@@ -19,7 +22,6 @@ class DataLoader:
 
     def initialize(self):
         # read files
-        # TODO: Add pre-processing steps for English language if not done already before this point
 
         aligned_sentences_inp = io.open(self.input_lang_path).read().strip().split('\n')
         # tokenizer automatically add special tokens, then pad it to max length

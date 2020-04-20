@@ -6,6 +6,7 @@ from generate_model_predictions import sacrebleu_metric, compute_bleu
 import tensorflow as tf
 import os
 import json
+from transformer import create_masks
 
 
 # Since the target sequences are padded, it is important
@@ -13,8 +14,8 @@ import json
 def loss_function(real, pred, loss_object, pad_token_id):
     """Calculates total loss containing cross entropy with padding ignored.
       Args:
-        logits: Tensor of size [batch_size, length_logits, vocab_size]
-        labels: Tensor of size [batch_size, length_labels]
+        real: Tensor of size [batch_size, length_logits, vocab_size]
+        pred: Tensor of size [batch_size, length_labels]
         loss_object: Cross entropy loss
         pad_token_id: Pad token id to ignore
       Returns:
@@ -32,7 +33,7 @@ def train_step(model, loss_object, optimizer, inp, tar,
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
-    enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(inp, tar_inp)
+    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
 
     with tf.GradientTape() as tape:
         # training=True is only needed if there are layers with different
@@ -56,7 +57,7 @@ def val_step(model, loss_object, inp, tar,
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
-    enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(inp, tar_inp)
+    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
 
     predictions, _ = model(inp, tar_inp,
                            False,
@@ -81,12 +82,12 @@ def compute_bleu_score(transformer_model, dataset, user_config, tokenizer_tar, e
                      tokenizer_tar, dataset,
                      tokenizer_tar.MAX_LENGTH)
     print("-----------------------------")
-    scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+    compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
     print("-----------------------------")
 
     # append checkpoint and score to file name for easy reference
     new_path = "../log/log_{}_{}/".format(inp_language, target_language) + checkpoint_path.split('/')[
-        -1] + "_epoch-" + str(epoch) + "_prediction_{}_{:.2f}".format(target_language, scores) + ".txt"
+        -1] + "_epoch-" + str(epoch) + "_prediction_{}".format(target_language) + ".txt"
     # append score and checkpoint name to file_name
     os.rename(pred_file_path, new_path)
     print("Saved translated prediction at {}".format(new_path))
@@ -163,7 +164,7 @@ def do_training(user_config):
 
             if (batch + 1) % 2200 == 0:
                 # inp -> english, tar -> french
-                for (batch_, (inp, tar, _)) in enumerate(val_dataset):
+                for (_, (inp, tar, _)) in enumerate(val_dataset):
                     val_step(transformer_model, loss_object, inp, tar,
                              val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
                 print('Batch {}: Val Loss: {:.4f}, Val Accuracy: {:.4f}\n'.format(batch, val_loss.result(),
@@ -184,21 +185,11 @@ def do_training(user_config):
         print('Time taken for training epoch {}: {} secs'.format(epoch + 1, time.time() - start))
 
         # evaluate and save model every x-epochs
-        # if epoch % 2 == 0:
         ckpt_save_path = ckpt_manager.save()
         print('Saving checkpoint after epoch {} at {}'.format(epoch + 1, ckpt_save_path))
         if user_config["compute_bleu"]:
             print("\nComputing BLEU at epoch {}: ".format(epoch + 1))
             compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, epoch + 1)
-
-    # # save model after last epoch
-    # ckpt_save_path = ckpt_manager.save()
-    # print('*****Training finished. Saving checkpoint for {} epoch at {}*****'.format(epochs, ckpt_save_path))
-    #
-    # # compute bleu score when training finished, and if bleu score wasn't already computed
-    # if user_config["compute_bleu"] and (epochs - 1) % 2 != 0:
-    #     print("\nComputing BLEU after training finished at epoch: {}: ".format(epochs))
-    #     compute_bleu_score(transformer_model, val_dataset, user_config, tokenizer_tar, epochs)
 
 
 def main():

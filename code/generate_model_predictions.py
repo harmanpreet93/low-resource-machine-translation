@@ -1,8 +1,7 @@
 import argparse
-import time
 from data_loader import DataLoader
 from evaluator import compute_bleu
-from transformer import Transformer
+from transformer import Transformer, create_masks
 import utils
 import tensorflow as tf
 import numpy as np
@@ -13,7 +12,6 @@ import json
 
 
 def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, test_dataset, max_length):
-    # start = time.time()
     if target_file_path is None:
         with open(pred_file_path, "w", buffering=1) as f_pred:
             # evaluations possibly faster in batches
@@ -32,7 +30,6 @@ def sacrebleu_metric(model, pred_file_path, target_file_path, tokenizer_tar, tes
                 for true, pred in zip(tar, translated_batch):
                     f_true.write(tf.compat.as_str_any(true.numpy()).strip() + "\n")
                     f_pred.write(pred.strip() + "\n")
-    # print('Time taken to compute sacrebleu files: {} secs'.format(time.time() - start))
 
 
 def translate_batch(model, inp, tokenizer_tar, max_length):
@@ -50,7 +47,7 @@ def evaluate_batch(model, inputs, tokenizer_tar, max_length):
     attention_weights = None
 
     for _ in range(max_length):
-        enc_padding_mask, combined_mask, dec_padding_mask = utils.create_masks(
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, output)
 
         # predictions.shape == (batch_size, seq_len, vocab_size)
@@ -132,19 +129,19 @@ def do_evaluation(user_config, input_file_path, target_file_path, pred_file_path
         pretrained_weights_inp = None
         pretrained_weights_tar = None
 
-    transformer_model = Transformer(user_config["transformer_num_layers"],
-                                    user_config["transformer_model_dimensions"],
-                                    user_config["transformer_num_heads"],
-                                    user_config["transformer_dff"],
-                                    input_vocab_size,
-                                    target_vocab_size,
-                                    en_input=input_vocab_size,
-                                    fr_target=target_vocab_size,
-                                    rate=user_config["transformer_dropout_rate"],
-                                    weights_inp=pretrained_weights_inp,
-                                    weights_tar=pretrained_weights_tar)
+    transformer_model = Transformer(
+        user_config["transformer_num_layers"],
+        user_config["transformer_model_dimensions"],
+        user_config["transformer_num_heads"],
+        user_config["transformer_dff"],
+        input_vocab_size,
+        target_vocab_size,
+        en_input=input_vocab_size,
+        fr_target=target_vocab_size,
+        rate=user_config["transformer_dropout_rate"],
+        weights_inp=pretrained_weights_inp,
+        weights_tar=pretrained_weights_tar)
 
-    # print("****Generating Translations after, without load weights****")
     sacrebleu_metric(transformer_model,
                      pred_file_path,
                      None,
