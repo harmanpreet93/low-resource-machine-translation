@@ -82,12 +82,12 @@ def compute_bleu_score(transformer_model, dataset, user_config, tokenizer_tar, e
                      tokenizer_tar, dataset,
                      tokenizer_tar.MAX_LENGTH)
     print("-----------------------------")
-    scores = compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
+    compute_bleu(pred_file_path, val_aligned_path_tar, print_all_scores=False)
     print("-----------------------------")
 
     # append checkpoint and score to file name for easy reference
     new_path = "../log/log_{}_{}/".format(inp_language, target_language) + checkpoint_path.split('/')[
-        -1] + "_epoch-" + str(epoch) + "_prediction_{}_{:.2f}".format(target_language, scores) + ".txt"
+        -1] + "_epoch-" + str(epoch) + "_prediction_{}".format(target_language) + ".txt"
     # append score and checkpoint name to file_name
     os.rename(pred_file_path, new_path)
     print("Saved translated prediction at {}".format(new_path))
@@ -164,8 +164,8 @@ def do_training(user_config):
 
             if (batch + 1) % 2200 == 0:
                 # inp -> english, tar -> french
-                for (batch_, (inp_, tar_, _)) in enumerate(val_dataset):
-                    val_step(transformer_model, loss_object, inp_, tar_,
+                for (_, (inp, tar, _)) in enumerate(val_dataset):
+                    val_step(transformer_model, loss_object, inp, tar,
                              val_loss, val_accuracy, pad_token_id=tokenizer_tar.pad_token_id)
                 print('Batch {}: Val Loss: {:.4f}, Val Accuracy: {:.4f}\n'.format(batch, val_loss.result(),
                                                                                   val_accuracy.result()))
