@@ -2,7 +2,6 @@ import argparse
 import logging
 import ntpath
 import os
-
 import tqdm
 
 logger = logging.getLogger(__name__)

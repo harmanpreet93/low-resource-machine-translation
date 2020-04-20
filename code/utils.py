@@ -1,7 +1,6 @@
 import os
 import io
 import json
-import matplotlib.pyplot as plt
 from pretrained_tokenizer import Tokenizer
 from transformer import Transformer, CustomSchedule
 import numpy as np
@@ -14,13 +13,20 @@ def set_seed(seed):
 
 
 def load_file(path):
+    """
+    load json file
+    param path: json file path to load
+    """
     assert os.path.isfile(path), f"invalid config file: {path}"
     with open(path, "r") as fd:
         return json.load(fd)
 
 
 def load_tokenizers(inp_language, target_language, user_config):
-    # load pre-trained tokenizer
+    """
+    load pre-trained tokenizer for input and target language
+    """
+
     pretrained_tokenizer_path_inp = user_config["tokenizer_path_{}".format(inp_language)]
     pretrained_tokenizer_path_tar = user_config["tokenizer_path_{}".format(target_language)]
 
@@ -33,6 +39,9 @@ def load_tokenizers(inp_language, target_language, user_config):
 
 
 def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
+    """
+    load transformer model and latest checkpoint to continue training
+    """
     input_vocab_size = tokenizer_inp.vocab_size
     target_vocab_size = tokenizer_tar.vocab_size
     inp_language = user_config["inp_language"]
@@ -46,7 +55,7 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
         pretrained_weights_inp = None
         pretrained_weights_tar = None
 
-    # define custom learning scheduler
+    # custom learning schedule
     learning_rate = CustomSchedule(user_config["transformer_model_dimensions"])
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
@@ -79,9 +88,12 @@ def load_transformer_model(user_config, tokenizer_inp, tokenizer_tar):
     return transformer_model, optimizer, ckpt_manager
 
 
-# mix back translated dataset with aligned dataset in some pre-defined ratio
 def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_unaligned_data_path_lang2,
                        true_data_path_lang2, num_of_times_to_add_true_data: int):
+    """
+    Mix back-translated dataset with aligned dataset in some pre-defined ratio
+    Used during iterative back-translation to maintain certain ratio of true_data:syn_data
+    """
     assert num_of_times_to_add_true_data > 0
 
     synthetic_data_lang1 = io.open(synthetic_data_path_lang1).read().strip().split('\n')
@@ -99,25 +111,3 @@ def create_mix_dataset(synthetic_data_path_lang1, true_data_path_lang1, true_una
     new_data_lang1, new_data_lang2 = zip(*shuffle_together)
 
     return list(new_data_lang1), list(new_data_lang2)
-
-
-def plot_attention_weights(attention_weights, sentence, result, layer):
-    """Visualize layer attention in transformer model """
-    fig = plt.figure(figsize=(16, 8))
-    attention_weights = tf.squeeze(attention_weights[layer], axis=0)
-    for head in range(attention_weights.shape[0]):
-        ax = fig.add_subplot(2, 4, head + 1)
-        # title and labels, setting initial sizes
-        fig.suptitle('{}'.format(layer), fontsize=12)
-        # plot the attention weights
-        ax.matshow(attention_weights[head][:-1, :], cmap='viridis')
-        fontdict = {'fontsize': 12}
-        ax.set_xticks(range(len(sentence) + 2))
-        ax.set_yticks(range(len(result)))
-        ax.set_ylim(len(result) - 1.5, -0.5)
-        ax.set_xticklabels(
-            ['<start>'] + sentence + ['<end>'], fontdict=fontdict, rotation=90)
-        ax.set_yticklabels(result, fontdict=fontdict)
-        ax.set_xlabel('Head {}'.format(head + 1))
-    plt.tight_layout()
-    plt.show()

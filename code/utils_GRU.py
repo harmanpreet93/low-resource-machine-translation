@@ -118,45 +118,48 @@ def map_indices(user_config, suffix, indices, lang):
                     outfile.write(line)
 
 
-def load_embeddings(GRU_config, embedding_model, lang):
+def load_embeddings(gru_config, embedding_model, lang):
     """ 
     Function to load embeddings pre-trained on the unaligned corpora
     """
     if lang == "en" and embedding_model == "Word2Vec":
         word_vectors = KeyedVectors.load(
-            GRU_config["pretrained_emb_w2v_en_path"])
+            gru_config["pretrained_emb_w2v_en_path"])
     elif lang == "en" and embedding_model == "FastText":
         word_vectors = KeyedVectors.load(
-            GRU_config["pretrained_emb_fast_en_path"])
+            gru_config["pretrained_emb_fast_en_path"])
     elif lang == "fr" and embedding_model == "Word2Vec":
         word_vectors = KeyedVectors.load(
-            GRU_config["pretrained_emb_w2v_fr_path"])
+            gru_config["pretrained_emb_w2v_fr_path"])
     elif lang == "fr" and embedding_model == "FastText":
         word_vectors = KeyedVectors.load(
-            GRU_config["pretrained_emb_fast_fr_path"])
+            gru_config["pretrained_emb_fast_fr_path"])
+    else:
+        raise ("Language and/or embedding model undefined!")
     return word_vectors
 
 
-def create_embedding_matrix(lang_tokenizer, GRU_config, embedding_model, lang):
+def create_embedding_matrix(lang_tokenizer, gru_config, embedding_model, lang):
     """ 
-    Creates an embedding matrix used as the weights in the embedding layer of the encoder and decoder of the GRU architecture
+    Creates an embedding matrix used as the weights in the embedding layer of the
+    encoder and decoder of the GRU architecture
     """
     # Loading wordvectors
-    word_vectors = load_embeddings(GRU_config, embedding_model, lang)
+    word_vectors = load_embeddings(gru_config, embedding_model, lang)
 
     print('Preparing embedding matrix')
     oov = 0
     oov_words = []
     vocab_size = len(lang_tokenizer.word_index) + 1
     word_index = lang_tokenizer.word_index
-    embedding_matrix = np.zeros((vocab_size, GRU_config["word_embedding_dim"]))
+    embedding_matrix = np.zeros((vocab_size, gru_config["word_embedding_dim"]))
     for word, i in word_index.items():
         if word not in word_vectors:
             # we can investigate the oov words
             oov_words.append(word)
             oov += 1
             # words not found in embedding_model will all be set to 0
-            embedding_vector = np.zeros((GRU_config["word_embedding_dim"],))
+            embedding_vector = np.zeros((gru_config["word_embedding_dim"],))
         else:
             embedding_vector = word_vectors.get_vector(word)
         embedding_matrix[i] = embedding_vector
