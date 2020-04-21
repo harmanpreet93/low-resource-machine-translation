@@ -4,15 +4,14 @@ import tensorflow as tf
 import pandas as pd
 import numpy as np
 import utils_GRU
-import GRU_embeddings
 from sklearn.model_selection import train_test_split
 
 
 # Encoder with GRU gates
 class Encoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, enc_units, batch_sz, weights=None):
+    def __init__(self, vocab_size, embedding_dim, enc_units, batch_size, weights=None):
         super(Encoder, self).__init__()
-        self.batch_sz = batch_sz
+        self.batch_size = batch_size
         self.enc_units = enc_units
 
         # using pre-trained embeddings
@@ -36,7 +35,7 @@ class Encoder(tf.keras.Model):
         return output, state
 
     def initialize_hidden_state(self):
-        return tf.zeros((self.batch_sz, self.enc_units))
+        return tf.zeros((self.batch_size, self.enc_units))
 
 
 class BahdanauAttention(tf.keras.layers.Layer):
@@ -165,22 +164,15 @@ def do_training(args, GRU_config):
     utils_GRU.map_indices(GRU_config, "test_en.txt", indices_en_val, "en")
     utils_GRU.map_indices(GRU_config, "test_fr.txt", indices_fr_val, "fr")
 
+    en_embedding_matrix, fr_embedding_matrix = None, None
     # loading pre-trained embeddings
     if args.embedding_model == "Word2Vec":
-        en_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "Word2Vec", "en")
-        fr_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "Word2Vec", "fr")
         # creating embedding matrix
         en_embedding_matrix = utils_GRU.create_embedding_matrix(
             inp_lang, GRU_config, "Word2Vec", "en")
         fr_embedding_matrix = utils_GRU.create_embedding_matrix(
             targ_lang, GRU_config, "Word2Vec", "fr")
     elif args.embedding_model == "FastText":
-        en_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "FastText", "en")
-        fr_word_vectors = utils_GRU.load_embeddings(
-            GRU_config, "FastText", "en")
         # creating embedding matrix
         en_embedding_matrix = utils_GRU.create_embedding_matrix(
             inp_lang, GRU_config, "FastText", "en")
@@ -303,9 +295,6 @@ def generate_predictions(args, GRU_config):
     input_tensor, target_tensor, inp_lang, targ_lang = utils_GRU.load_dataset(
         GRU_config["data_folder"] + "en-fr.txt")
 
-    vocab_inp_size = len(inp_lang.word_index) + 1
-    vocab_tar_size = len(targ_lang.word_index) + 1
-
     max_length_targ, max_length_inp = (
         utils_GRU.max_length(target_tensor),
         utils_GRU.max_length(input_tensor),
@@ -329,7 +318,6 @@ def generate_predictions(args, GRU_config):
                 inputs = tf.keras.preprocessing.sequence.pad_sequences(
                     [inputs], maxlen=max_length_inp, padding="post")
                 inputs = tf.convert_to_tensor(inputs)
-                result = ""
                 hidden = [tf.zeros((1, GRU_config["hidden_units"]))]
                 enc_out, enc_hidden = encoder(inputs, hidden)
                 dec_hidden = enc_hidden

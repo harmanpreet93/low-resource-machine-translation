@@ -3,7 +3,6 @@ import logging
 import ntpath
 import os
 import re
-
 import spacy
 import tqdm
 
@@ -57,7 +56,7 @@ def main():
     done = 0
     for current_file in args.input:
         logger.info('tokenizing file {}'.format(current_file))
-        tot_lines, empty_skipped, regex_skipped= tokenize(
+        tot_lines, empty_skipped, regex_skipped = tokenize(
             current_file, args.output, tokenizer, args.keep_case, args.keep_empty_lines,
             args.newline_to_space, regs)
         done += 1

@@ -1,6 +1,6 @@
 ## IFT6759: Low Resource Machine Translation
 
-This project was created as part of the UdeM course IFT6759 (https://admission.umontreal.ca/cours-et-horaires/cours/IFT-6759/). The objective of this project is to predict French translations of English sentences using a small dataset. Refer to the report and presentation included in this reporistory for more details.
+This project was created as part of the UdeM course IFT6759 (https://admission.umontreal.ca/cours-et-horaires/cours/IFT-6759/). The objective of this project is to predict French translations of English sentences in a low-resource setting. Refer to the report and presentation included in this repository for more details.
 
 ### Team 08
 * Alexander Peplowski
@@ -20,17 +20,19 @@ Steps to run evaluation:
 
 ## Instructions for the team:
 
-### K-Fold Strategy
-
-* NA
 
 ### Coding Standards
 
 * Lint your code as per PEP8 before submitting a pull request
+* Add comments and doc-strings to your code
 * Pull requests are required for merging to master for major changes
 * Use your own branch for major work, don't use master
 * No large files allowed in git
 * Mark task in progress on Kanban before starting work
+
+### K-Fold Strategy
+
+* As we had small aligned dataset of 11k examples, we decided to use single-fold validation held out strategy.
 
 ### To setup a new local environment:
 

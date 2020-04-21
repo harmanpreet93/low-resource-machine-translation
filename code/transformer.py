@@ -317,6 +317,7 @@ class Decoder(tf.keras.layers.Layer):
         return x, attention_weights
 
 
+# Define transformer model
 class Transformer(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
                  target_vocab_size, en_input, fr_target, rate=0.1, weights_inp=None, weights_tar=None):
