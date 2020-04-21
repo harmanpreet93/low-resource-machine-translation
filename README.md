@@ -55,13 +55,3 @@ OR, if no requirement.txt file is available:
 ```console
 pip install --no-index tensorflow-gpu==2 pandas numpy tqdm
 ```
-
-### To evaluate results from server locally using tensorboard:
-
-Run the commands to synchronize data from the server and to launch tensorboard:
-```console
-./scripts/rsync_data.sh
-./scripts/run_tensorboard.sh
-```
-Use a web browser to visit: http://localhost:6006/
-
