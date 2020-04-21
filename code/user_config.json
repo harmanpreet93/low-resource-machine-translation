@@ -1,6 +1,6 @@
 {
   "random_seed": 42,
-  "model_file": "../model/final_model_2",
+  "model_file": "../model/new_best_model",
   "target_model": "bert_model",
   "transformer_dropout_rate": 0.1,
   "transformer_batch_size": 128,
