@@ -6,7 +6,7 @@
 # --reservation=IFT6759_2020-04-10
 
 module load python/3.7
-source /home/guest140/harman_venv/bin/activate
+source /project/cq-training-1/project2/submissions/team08/s_env/bin/activate
 
 date
 echo ~~~~~~~~~~~~Evaluating Transformer model
@@ -20,4 +20,4 @@ python -u ../code/generate_model_predictions.py \
             --target_file_path ../data/test_fr.txt \
             --pred_file_path ../data/en_fr_test_en.txt \
             2>&1 | tee -a ../log/log.en_fr_test_en.log \
-            
+
